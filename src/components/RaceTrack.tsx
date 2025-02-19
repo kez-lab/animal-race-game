@@ -29,7 +29,6 @@ const RaceTrack: React.FC<RaceTrackProps> = ({ participants, raceInProgress, onR
       setRunners(
         participants.map(() => ({
           position: 0,
-          // 낮은 속도 범위: 0.5 ~ 2.5
           speed: Math.random() * 2 + 0.7,
           finishTime: null,
         }))
