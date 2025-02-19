@@ -1,0 +1,20 @@
+{
+  "files": {
+    "main.css": "/animal-race-game/static/css/main.6a93335c.chunk.css",
+    "main.js": "/animal-race-game/static/js/main.d240c9de.chunk.js",
+    "main.js.map": "/animal-race-game/static/js/main.d240c9de.chunk.js.map",
+    "runtime-main.js": "/animal-race-game/static/js/runtime-main.a6efdf9a.js",
+    "runtime-main.js.map": "/animal-race-game/static/js/runtime-main.a6efdf9a.js.map",
+    "static/js/2.20a875d9.chunk.js": "/animal-race-game/static/js/2.20a875d9.chunk.js",
+    "static/js/2.20a875d9.chunk.js.map": "/animal-race-game/static/js/2.20a875d9.chunk.js.map",
+    "index.html": "/animal-race-game/index.html",
+    "static/css/main.6a93335c.chunk.css.map": "/animal-race-game/static/css/main.6a93335c.chunk.css.map",
+    "static/js/2.20a875d9.chunk.js.LICENSE.txt": "/animal-race-game/static/js/2.20a875d9.chunk.js.LICENSE.txt"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.a6efdf9a.js",
+    "static/js/2.20a875d9.chunk.js",
+    "static/css/main.6a93335c.chunk.css",
+    "static/js/main.d240c9de.chunk.js"
+  ]
+}
