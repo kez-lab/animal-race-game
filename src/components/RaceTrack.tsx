@@ -30,7 +30,7 @@ const RaceTrack: React.FC<RaceTrackProps> = ({ participants, raceInProgress, onR
         participants.map(() => ({
           position: 0,
           // 낮은 속도 범위: 0.5 ~ 2.5
-          speed: Math.random() * 2 + 0.5,
+          speed: Math.random() * 2 + 0.7,
           finishTime: null,
         }))
       );
@@ -40,8 +40,7 @@ const RaceTrack: React.FC<RaceTrackProps> = ({ participants, raceInProgress, onR
           prevRunners.map(runner => {
             if (runner.finishTime !== null) return runner;
             let newPosition = runner.position + runner.speed;
-            // 감속 효과: 결승선에 가까워질수록 속도를 줄임
-            let newSpeed = (Math.random() * 2 + 0.5);
+            let newSpeed = (Math.random() * 2 + 0.7);
             let newFinishTime: number | null = runner.finishTime;
             if (newPosition >= finishLine) {
               newPosition = finishLine;
@@ -55,7 +54,7 @@ const RaceTrack: React.FC<RaceTrackProps> = ({ participants, raceInProgress, onR
             };
           })
         );
-      }, 300);
+      }, 250);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
