@@ -1,3 +1,4 @@
+// src/components/RaceTrack.tsx (일부 수정 예시)
 import React, { useEffect, useState, useRef } from 'react';
 import { Participant, RaceResult } from './App';
 
@@ -14,35 +15,36 @@ interface RaceTrackProps {
 }
 
 const RaceTrack: React.FC<RaceTrackProps> = ({ participants, raceInProgress, onRaceComplete }) => {
-  const finishLine = 95; // 결승선 위치 (%)
+  const finishLine = 95;
   const [runners, setRunners] = useState<RunnerState[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
-  const completedRef = useRef<boolean>(false); // 완료 플래그
+  const completedRef = useRef<boolean>(false);
 
-  // 레이스 시작 시 초기화
   useEffect(() => {
     if (raceInProgress) {
-      // 더 정밀한 타이머 사용: performance.now()
+      completedRef.current = false;
       startTimeRef.current = performance.now();
       setRunners(
         participants.map(() => ({
           position: 0,
-          speed: Math.random() * 4 + 1,
+          // 낮은 속도 범위: 0.5 ~ 2.5
+          speed: Math.random() * 2 + 0.5,
           finishTime: null,
         }))
       );
+      // 업데이트 간격을 300ms로 설정
       intervalRef.current = setInterval(() => {
         setRunners(prevRunners =>
           prevRunners.map(runner => {
             if (runner.finishTime !== null) return runner;
             let newPosition = runner.position + runner.speed;
-            let newSpeed = Math.random() * 4 + 1;
+            // 감속 효과: 결승선에 가까워질수록 속도를 줄임
+            let newSpeed = (Math.random() * 2 + 0.5);
             let newFinishTime: number | null = runner.finishTime;
             if (newPosition >= finishLine) {
               newPosition = finishLine;
-              // performance.now() 사용하여 정밀한 시간 측정 (초 단위로 변환)
               newFinishTime = (performance.now() - startTimeRef.current) / 1000;
               newSpeed = 0;
             }
@@ -53,15 +55,13 @@ const RaceTrack: React.FC<RaceTrackProps> = ({ participants, raceInProgress, onR
             };
           })
         );
-      }, 200);
+      }, 300);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [raceInProgress, participants]);
-  
 
-  // 모든 참가자가 결승선에 도달했는지 확인 후 최종 결과 전달 (한 번만 호출)
   useEffect(() => {
     if (
       raceInProgress &&
@@ -69,7 +69,7 @@ const RaceTrack: React.FC<RaceTrackProps> = ({ participants, raceInProgress, onR
       runners.every(runner => runner.finishTime !== null) &&
       !completedRef.current
     ) {
-      completedRef.current = true; // 한 번만 실행되도록 설정
+      completedRef.current = true;
       if (intervalRef.current) clearInterval(intervalRef.current);
       const results: RaceResult[] = participants.map((participant, i) => ({
         name: participant.name,
@@ -97,7 +97,6 @@ const RaceTrack: React.FC<RaceTrackProps> = ({ participants, raceInProgress, onR
         overflow: 'hidden',
       }}
     >
-      {/* 결승선 표시 */}
       <div
         style={{
           position: 'absolute',
@@ -116,15 +115,13 @@ const RaceTrack: React.FC<RaceTrackProps> = ({ participants, raceInProgress, onR
             position: 'absolute',
             left: `${runners[index]?.position ?? 0}%`,
             top: `${index * 60 + 10}px`,
-            transition: 'left 0.2s linear',
+            transition: 'left 0.3s linear',
             display: 'flex',
             alignItems: 'center',
             width: '150px',
           }}
         >
-          <span style={{ marginRight: '8px', fontSize: '1.5rem' }}>
-            {participant.animal}
-          </span>
+          <span style={{ marginRight: '8px', fontSize: '1.5rem' }}>{participant.animal}</span>
           <span>{participant.name}</span>
         </div>
       ))}

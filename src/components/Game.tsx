@@ -37,7 +37,7 @@ const Game: React.FC<GameProps> = ({ participants, onRaceEnd }) => {
           <ul>
             {results.map((result, index) => (
               <li key={index}>
-                {result.name} - {index + 1} place (Time: {result.finishTime.toFixed(2)}s)
+                {result.name} - {index + 1} place (Time: {result.finishTime.toFixed(5)}s)
               </li>
             ))}
           </ul>
