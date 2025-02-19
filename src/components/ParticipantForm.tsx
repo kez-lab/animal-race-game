@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// src/components/ParticipantForm.tsx
+import React, { useState, useRef, useEffect } from 'react';
 import { Participant } from './App';
 
 interface ParticipantFormProps {
@@ -13,6 +14,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({ participants, addPart
   const [name, setName] = useState('');
   // 기본 선택값은 "random"으로 고정 (메뉴에는 "Random Animal"이 표시됨)
   const [selectedAnimal, setSelectedAnimal] = useState('random');
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddParticipant = () => {
     if (!name.trim()) {
@@ -33,6 +35,10 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({ participants, addPart
     setName('');
     // 다시 기본값으로 "random" 설정
     setSelectedAnimal('random');
+    // 추가 후 입력란 포커스 유지
+    if (nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
   };
 
   const handleRemoveParticipant = (index: number) => {
@@ -43,6 +49,7 @@ const ParticipantForm: React.FC<ParticipantFormProps> = ({ participants, addPart
     <div className="participant-form">
       <h2>Join the Race</h2>
       <input
+        ref={nameInputRef}
         type="text"
         placeholder="Enter your name"
         value={name}
