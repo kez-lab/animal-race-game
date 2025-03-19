@@ -9,43 +9,24 @@ interface GameProps {
 }
 
 const Game: React.FC<GameProps> = ({ participants, onRaceEnd }) => {
-  const [raceInProgress, setRaceInProgress] = useState<boolean>(false);
-  const [results, setResults] = useState<RaceResult[]>([]);
+  const [isRacing, setIsRacing] = useState(true);
 
-  const startRace = () => {
-    setRaceInProgress(true);
-    setResults([]); // 이전 결과 초기화
-  };
-
-  // RaceTrack에서 레이스 완료 시 호출하는 콜백
-  const handleRaceComplete = (finalResults: RaceResult[]) => {
-    setResults(finalResults);
-    setRaceInProgress(false);
-    onRaceEnd(finalResults);
+  const handleRaceComplete = (results: RaceResult[]) => {
+    console.log('Race completed in Game component:', results); // 디버깅용 로그
+    setIsRacing(false);
+    // 결과를 즉시 전달하되, 화면 전환을 위한 약간의 지연 추가
+    setTimeout(() => {
+      onRaceEnd(results);
+    }, 500);
   };
 
   return (
-    <div className="game-container">
+    <div className="game">
       <RaceTrack
         participants={participants}
-        raceInProgress={raceInProgress}
+        raceInProgress={isRacing}
         onRaceComplete={handleRaceComplete}
       />
-      {results.length > 0 && (
-        <div className="results">
-          <h2>Race Results</h2>
-          <ul>
-            {results.map((result, index) => (
-              <li key={index}>
-                {result.name} - {index + 1} place (Time: {result.finishTime.toFixed(5)}s)
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <button onClick={startRace} disabled={raceInProgress}>
-        Start Race
-      </button>
     </div>
   );
 };

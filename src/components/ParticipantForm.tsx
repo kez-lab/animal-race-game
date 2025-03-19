@@ -1,81 +1,112 @@
 // src/components/ParticipantForm.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Participant } from './App';
 
 interface ParticipantFormProps {
   participants: Participant[];
   addParticipant: (participant: Participant) => void;
-  removeParticipant: (participantName: string) => void;
+  removeParticipant: (name: string) => void;
 }
 
-const animals = ['🐶', '🐱', '🐰', '🐢', '🐴'];
+const ANIMAL_OPTIONS = [
+  { value: '🐎', label: '말' },
+  { value: '🐅', label: '호랑이' },
+  { value: '🐇', label: '토끼' },
+  { value: '🦊', label: '여우' },
+  { value: '🦘', label: '캥거루' },
+  { value: '🦌', label: '사슴' },
+  { value: '🐆', label: '치타' },
+  { value: '🦒', label: '기린' },
+];
 
-const ParticipantForm: React.FC<ParticipantFormProps> = ({ participants, addParticipant, removeParticipant }) => {
+const getRandomAnimal = () => {
+  return ANIMAL_OPTIONS[Math.floor(Math.random() * ANIMAL_OPTIONS.length)].value;
+};
+
+const ParticipantForm: React.FC<ParticipantFormProps> = ({
+  participants,
+  addParticipant,
+  removeParticipant,
+}) => {
   const [name, setName] = useState('');
-  // 기본 선택값은 "random"으로 고정 (메뉴에는 "Random Animal"이 표시됨)
-  const [selectedAnimal, setSelectedAnimal] = useState('random');
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  const [animal, setAnimal] = useState('random');
+  const [error, setError] = useState('');
 
-  const handleAddParticipant = () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (!name.trim()) {
-      alert('이름을 입력해주세요.');
+      setError('이름을 입력해주세요');
       return;
     }
-    // 이름 중복 체크 (대소문자 구분 없이)
-    if (participants.some(p => p.name.toLowerCase() === name.trim().toLowerCase())) {
-      alert('이미 존재하는 이름입니다. 다른 이름을 입력해주세요.');
-      return;
-    }
-    // selectedAnimal 값이 "random"이면 실제 랜덤 동물을 할당
-    const animalToAssign =
-      selectedAnimal === 'random'
-        ? animals[Math.floor(Math.random() * animals.length)]
-        : selectedAnimal;
-    addParticipant({ name: name.trim(), animal: animalToAssign });
-    setName('');
-    // 다시 기본값으로 "random" 설정
-    setSelectedAnimal('random');
-    // 추가 후 입력란 포커스 유지
-    if (nameInputRef.current) {
-      nameInputRef.current.focus();
-    }
-  };
 
-  const handleRemoveParticipant = (index: number) => {
-    removeParticipant(participants[index].name);
+    if (participants.some(p => p.name === name)) {
+      setError('이미 존재하는 이름입니다');
+      return;
+    }
+
+    if (participants.length >= 15) {
+      setError('최대 15명까지만 참가할 수 있습니다');
+      return;
+    }
+
+    const selectedAnimal = animal === 'random' ? getRandomAnimal() : animal;
+    addParticipant({ name: name.trim(), animal: selectedAnimal });
+    setName('');
+    setAnimal('random');
+    setError('');
   };
 
   return (
     <div className="participant-form">
-      <h2>Join the Race</h2>
-      <input
-        ref={nameInputRef}
-        type="text"
-        placeholder="Enter your name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <select
-        value={selectedAnimal}
-        onChange={(e) => setSelectedAnimal(e.target.value)}
-      >
-        <option value="random">Random Animal</option>
-        {animals.map((animal, idx) => (
-          <option key={idx} value={animal}>
-            {animal}
-          </option>
+      <h2>참가자 등록</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label htmlFor="name">이름</label>
+          <input
+            id="name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="참가자 이름을 입력하세요"
+            maxLength={10}
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="animal">동물 선택</label>
+          <select
+            id="animal"
+            value={animal}
+            onChange={(e) => setAnimal(e.target.value)}
+          >
+            <option value="random">🎲 랜덤 선택</option>
+            {ANIMAL_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.value} {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {error && <div className="error-message">{error}</div>}
+        <button type="submit">참가자 추가</button>
+      </form>
+
+      <div className="participants-list">
+        {participants.map((participant) => (
+          <div key={participant.name} className="participant-card">
+            <div className="participant-info">
+              <span className="participant-animal">{participant.animal}</span>
+              <span className="participant-name">{participant.name}</span>
+            </div>
+            <button
+              className="remove-button"
+              onClick={() => removeParticipant(participant.name)}
+            >
+              삭제
+            </button>
+          </div>
         ))}
-      </select>
-      <button onClick={handleAddParticipant}>Add Participant</button>
-      <ul>
-        {participants.map((participant, index) => (
-          <li key={index}>
-            {participant.name} ({participant.animal})
-            <button onClick={() => handleRemoveParticipant(index)}>Remove</button>
-          </li>
-        ))}
-      </ul>
-      {participants.length < 1 && <p>At least one participant is required.</p>}
+      </div>
     </div>
   );
 };

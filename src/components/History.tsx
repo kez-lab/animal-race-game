@@ -7,30 +7,38 @@ interface HistoryProps {
 }
 
 const History: React.FC<HistoryProps> = ({ raceHistories }) => {
-  if (!raceHistories || raceHistories.length === 0) {
-    return <div>No race history available</div>;
-  }
-
-  // raceHistories 배열의 첫 5개 항목 사용 (최신순으로 정렬되어 있다고 가정)
-  const slicedData = raceHistories.slice(0, 5);
+  if (raceHistories.length === 0) return null;
 
   return (
-    <div className="history">
-      <h2>Race History</h2>
-      <ul>
-        {slicedData.map((race, raceIndex) => (
-          <li key={raceIndex}>
-            <h3>Race {raceIndex + 1}</h3>
-            <ul>
-              {race.map((result, idx) => (
-                <li key={idx}>
-                  {result.name} {result.icon} - Time: {result.finishTime.toFixed(5)}s
-                </li>
+    <div className="history-section">
+      <h2 className="history-title">경주 기록</h2>
+      <div className="history-list">
+        {raceHistories.map((results, raceIndex) => (
+          <div key={raceIndex} className="history-item">
+            <h3 className="race-number">Race #{raceHistories.length - raceIndex}</h3>
+            <div className="results-list">
+              {results.map((result, position) => (
+                <div
+                  key={result.name}
+                  className={`result-item ${position === 0 ? 'winner' : ''}`}
+                >
+                  <div className="position">
+                    {position === 0 && <span className="crown">👑</span>}
+                    {position + 1}위
+                  </div>
+                  <div className="participant-info">
+                    <span className="animal">{result.icon}</span>
+                    <span className="name">{result.name}</span>
+                  </div>
+                  <div className="time">
+                    {result.finishTime.toFixed(2)}초
+                  </div>
+                </div>
               ))}
-            </ul>
-          </li>
+            </div>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 };
