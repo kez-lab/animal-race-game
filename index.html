@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>픽셀 커피 경마</title>
+    <!-- 픽셀 아트 폰트 -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --pixel-font: 'Press Start 2P', cursive;
+            --grass-light: #66cc66;
+            --grass-dark: #55aa55;
+            --dirt-light: #dcb159;
+            --dirt-dark: #b89040;
+        }
+
+        body {
+            font-family: var(--pixel-font);
+            background-color: #2c3e50;
+            color: white;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        /* 픽셀 아트 스타일 버튼 */
+        .pixel-btn {
+            background-color: #ffcc00;
+            border: 4px solid #000;
+            box-shadow: 4px 4px 0px #000;
+            color: #000;
+            transition: transform 0.1s;
+            image-rendering: pixelated;
+        }
+
+        .pixel-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #000;
+        }
+
+        .pixel-btn.danger {
+            background-color: #ff5555;
+        }
+
+        .pixel-btn.success {
+            background-color: #55ff55;
+        }
+
+        /* 픽셀 아트 패널 */
+        .pixel-panel {
+            background-color: #fff;
+            border: 4px solid #000;
+            box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.5);
+            color: #000;
+        }
+
+        /* 트랙 스타일 */
+        .track-container {
+            background: repeating-linear-gradient(90deg,
+                    var(--grass-light),
+                    var(--grass-light) 50px,
+                    var(--grass-dark) 50px,
+                    var(--grass-dark) 100px);
+            border: 4px solid #000;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .finish-line {
+            position: absolute;
+            right: 40px;
+            top: 0;
+            bottom: 0;
+            width: 20px;
+            background: repeating-linear-gradient(0deg,
+                    #fff,
+                    #fff 10px,
+                    #000 10px,
+                    #000 20px);
+            z-index: 0;
+        }
+
+        .lane {
+            border-bottom: 2px dashed rgba(0, 0, 0, 0.2);
+            position: relative;
+            height: 60px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* 말 애니메이션 */
+        .horse {
+            width: 48px;
+            height: 48px;
+            position: absolute;
+            left: 0;
+            transition: left 0.1s linear;
+            z-index: 10;
+        }
+
+        .horse-sprite {
+            width: 100%;
+            height: 100%;
+            animation: gallop 0.4s infinite steps(2);
+        }
+
+        @keyframes gallop {
+            0% {
+                transform: translateY(0) rotate(0deg);
+            }
+
+            50% {
+                transform: translateY(-3px) rotate(2deg);
+            }
+
+            100% {
+                transform: translateY(0) rotate(0deg);
+            }
+        }
+
+        .dust {
+            position: absolute;
+            bottom: 5px;
+            left: -10px;
+            width: 10px;
+            height: 10px;
+            background-color: rgba(255, 255, 255, 0.6);
+            opacity: 0;
+        }
+
+        .dust.active {
+            animation: dust-poof 0.5s linear;
+        }
+
+        @keyframes dust-poof {
+            0% {
+                opacity: 0.8;
+                transform: scale(1) translate(0, 0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(2) translate(-20px, -10px);
+            }
+        }
+
+        .pixel-input {
+            border: 4px solid #000;
+            padding: 10px;
+            font-family: var(--pixel-font);
+            width: 100%;
+            outline: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 결과 화면 애니메이션 */
+        .loser-title {
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from {
+                transform: scale(1);
+            }
+
+            to {
+                transform: scale(1.05);
+            }
+        }
+
+        /* 랭킹 리스트 스타일 */
+        .rank-item {
+            border-bottom: 2px solid #eee;
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .rank-item:last-child {
+            border-bottom: none;
+        }
+
+        .rank-badge {
+            display: inline-block;
+            width: 30px;
+            text-align: center;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- 1. 설정 화면 -->
+    <div id="setup-screen" class="pixel-panel p-8 max-w-md w-full text-center">
+        <h1 class="text-2xl mb-8 leading-relaxed text-blue-800">☕ COFFEE<br>RACE</h1>
+        <div class="mb-6">
+            <label class="block mb-4 text-sm">참가 인원 (2-8명)</label>
+            <div class="flex justify-center items-center gap-4">
+                <button onclick="changeCount(-1)" class="pixel-btn w-10 h-10 text-xl">-</button>
+                <span id="player-count-display" class="text-2xl w-10">4</span>
+                <button onclick="changeCount(1)" class="pixel-btn w-10 h-10 text-xl">+</button>
+            </div>
+        </div>
+        <button onclick="goToNaming()" class="pixel-btn w-full py-4 text-lg mt-4">NEXT ></button>
+    </div>
+
+    <!-- 2. 이름 입력 화면 -->
+    <div id="naming-screen" class="pixel-panel p-6 max-w-md w-full hidden">
+        <h2 class="text-xl mb-6 text-center text-blue-800">선수 입장</h2>
+        <div id="name-inputs" class="space-y-4 mb-6 max-h-[60vh] overflow-y-auto">
+            <!-- 자바스크립트로 생성됨 -->
+        </div>
+        <button onclick="startRace()" class="pixel-btn success w-full py-4 text-lg">RACE START!</button>
+    </div>
+
+    <!-- 3. 경기 화면 -->
+    <div id="race-screen" class="w-full max-w-4xl hidden">
+        <div class="pixel-panel p-2 mb-4 bg-yellow-100 flex justify-between items-center sticky top-0 z-20">
+            <div class="text-xs md:text-sm text-black blinking" id="game-status">준비 중...</div>
+            <button id="reset-btn" onclick="resetGame()" class="pixel-btn text-xs px-2 py-1 hidden">재경기</button>
+        </div>
+
+        <div id="track" class="track-container rounded-lg shadow-lg mb-4 bg-green-600">
+            <div class="finish-line"></div>
+            <!-- 레일이 여기에 생성됨 -->
+        </div>
+
+        <!-- 중계석 -->
+        <div class="pixel-panel p-4 bg-black text-green-400 text-xs md:text-sm h-24 overflow-hidden relative">
+            <div class="absolute top-2 left-2 text-gray-500 text-[10px]">COMMENTARY</div>
+            <div id="commentary-box" class="mt-4 leading-loose">
+                선수들이 라인에 섰습니다...<br>
+                긴장되는 순간입니다!
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 결과 모달 (수정됨) -->
+    <div id="result-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="pixel-panel p-6 max-w-lg w-full relative animate-fade-in max-h-[90vh] overflow-y-auto">
+
+            <!-- 꼴찌 강조 섹션 -->
+            <div class="bg-red-100 p-6 border-4 border-red-500 text-center mb-6 loser-title">
+                <div class="text-sm text-red-600 mb-2 font-bold">☠️ 오늘의 커피 요정 (꼴찌) ☠️</div>
+                <div id="loser-name" class="text-3xl text-red-800 font-bold mb-1">???</div>
+                <div id="loser-time" class="text-sm text-red-500">기록: --.--s</div>
+                <div class="text-xs mt-3 text-gray-600 bg-white inline-block px-2 py-1 border border-gray-300">잘 마시겠습니다
+                    ^^</div>
+            </div>
+
+            <!-- 전체 랭킹 리스트 -->
+            <h3 class="text-lg mb-4 text-center text-blue-800 border-b-4 border-blue-800 pb-2">🏆 전체 순위 🏆</h3>
+            <div id="ranking-list" class="text-black text-sm mb-6 max-h-60 overflow-y-auto pr-2">
+                <!-- JS로 랭킹 아이템 생성 -->
+            </div>
+
+            <button onclick="resetGame()" class="pixel-btn w-full py-4">다시 하기</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 게임 설정 및 상태 ---
+        let playerCount = 4;
+        let players = [];
+        let isRacing = false;
+        let startTime = 0;
+        let commentaryTimer;
+        const trackLength = 85; // % 단위 (피니시 라인 위치 고려)
+
+        const colors = [
+            '#FF0000', '#0000FF', '#00AA00', '#FFD700',
+            '#FF00FF', '#00FFFF', '#FFA500', '#800080'
+        ];
+
+        const horseSvg = (color) => `
+            <svg viewBox="0 0 24 24" fill="${color}" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(2px 2px 0px black);">
+                <path d="M4 14h4v2H4zM6 16h2v2H6zM14 14h2v4h-2zM16 16h2v2h-2z" />
+                <path d="M2 12h6v2H2zM12 12h6v2h-6z" />
+                <path d="M4 8h4v4H4zM10 8h8v4h-8z" />
+                <path d="M12 4h6v4h-6z" />
+                <path d="M16 2h2v2h-2z" />
+                <path d="M18 4h2v2h-2z" />
+                <path d="M18 6h-2v2h2z" fill="black" /> <!-- 눈 -->
+            </svg>
+        `;
+
+        // --- 화면 전환 함수 ---
+        function changeCount(delta) {
+            playerCount += delta;
+            if (playerCount < 2) playerCount = 2;
+            if (playerCount > 8) playerCount = 8;
+            document.getElementById('player-count-display').innerText = playerCount;
+        }
+
+        function goToNaming() {
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('naming-screen').classList.remove('hidden');
+            generateNameInputs();
+        }
+
+        function generateNameInputs() {
+            const container = document.getElementById('name-inputs');
+            container.innerHTML = '';
+            for (let i = 0; i < playerCount; i++) {
+                const div = document.createElement('div');
+                div.className = 'flex gap-2 items-center';
+                div.innerHTML = `
+                    <div class="w-8 h-8 rounded border-2 border-black flex-shrink-0" style="background-color: ${colors[i]}"></div>
+                    <input type="text" id="p${i}" value="플레이어 ${i + 1}" class="pixel-input" placeholder="이름 입력">
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        // --- 레이스 로직 ---
+        function startRace() {
+            // 이름 가져오기
+            players = [];
+            for (let i = 0; i < playerCount; i++) {
+                const name = document.getElementById(`p${i}`).value || `선수 ${i + 1}`;
+                players.push({
+                    id: i,
+                    name: name,
+                    color: colors[i],
+                    pos: 0,
+                    rank: null,
+                    finishTime: 0,
+                    finished: false,
+                    // 속도를 훨씬 낮춤 (0.05 ~ 0.1 사이)
+                    speedFactor: 0.05 + Math.random() * 0.05
+                });
+            }
+
+            // 화면 전환
+            document.getElementById('naming-screen').classList.add('hidden');
+            document.getElementById('race-screen').classList.remove('hidden');
+            document.getElementById('result-modal').classList.add('hidden');
+            document.getElementById('reset-btn').classList.add('hidden');
+
+            // 트랙 생성
+            renderTrack();
+
+            // 카운트다운 후 시작
+            addCommentary("잠시 후 경기가 시작됩니다!");
+            let count = 3;
+            document.getElementById('game-status').innerText = "출발 준비...";
+
+            const countInterval = setInterval(() => {
+                if (count > 0) {
+                    addCommentary(`${count}...!`);
+                    document.getElementById('game-status').innerText = `COUNTDOWN: ${count}`;
+                    count--;
+                } else {
+                    clearInterval(countInterval);
+                    addCommentary("출발했습니다!!! 🐎");
+                    document.getElementById('game-status').innerText = "RACE START!";
+                    isRacing = true;
+                    startTime = Date.now(); // 시간 측정 시작
+                    requestAnimationFrame(gameLoop);
+                    commentaryTimer = setInterval(randomCommentary, 2000); // 멘트 간격도 조금 늘림
+                }
+            }, 800);
+        }
+
+        function renderTrack() {
+            const track = document.getElementById('track');
+            track.innerHTML = '<div class="finish-line"></div>';
+
+            players.forEach((p, idx) => {
+                const lane = document.createElement('div');
+                lane.className = 'lane pl-2';
+                if (idx % 2 === 0) lane.style.backgroundColor = 'rgba(0,0,0,0.05)';
+
+                lane.innerHTML = `
+                    <div id="horse-${idx}" class="horse">
+                        <div class="horse-sprite text-4xl">
+                            ${horseSvg(p.color)}
+                        </div>
+                        <div class="text-[10px] mt-1 whitespace-nowrap overflow-hidden text-ellipsis w-24 bg-black bg-opacity-50 px-1 rounded absolute -bottom-4 left-0 text-white border border-black">${p.name}</div>
+                        <div id="dust-${idx}" class="dust"></div>
+                    </div>
+                `;
+                track.appendChild(lane);
+            });
+        }
+
+        function gameLoop() {
+            if (!isRacing) return;
+
+            let finishedCount = players.filter(p => p.finished).length;
+            let stillRacing = false;
+
+            players.forEach(p => {
+                if (p.finished) return;
+
+                stillRacing = true;
+
+                // 속도 로직 수정: 전체적으로 느리게 하여 박진감 조성
+                // 기본 이동 + 랜덤 변동
+                let move = (Math.random() * 0.1) + p.speedFactor;
+
+                // 3% 확률로 부스터 (먼지 효과)
+                if (Math.random() < 0.03) {
+                    move *= 4; // 순간 가속
+                    showDust(p.id);
+                }
+
+                // 1% 확률로 비틀거림 (멈춤)
+                if (Math.random() < 0.01) move = -0.05; // 살짝 뒤로 가기도 함
+
+                p.pos += move;
+
+                // 피니시 체크
+                if (p.pos >= trackLength) {
+                    p.pos = trackLength;
+                    p.finished = true;
+                    p.rank = finishedCount + 1;
+                    // 시간 기록 (소수점 둘째자리)
+                    p.finishTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                    addCommentary(`🚩 [${p.name}] ${p.finishTime}초 기록으로 골인!`);
+                }
+
+                // UI 업데이트
+                const horseEl = document.getElementById(`horse-${p.id}`);
+                horseEl.style.left = `${p.pos}%`;
+                horseEl.style.zIndex = Math.floor(p.pos);
+            });
+
+            if (!stillRacing) {
+                endRace();
+            } else {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function showDust(id) {
+            const dust = document.getElementById(`dust-${id}`);
+            dust.classList.remove('active');
+            void dust.offsetWidth;
+            dust.classList.add('active');
+        }
+
+        function endRace() {
+            isRacing = false;
+            clearInterval(commentaryTimer);
+            document.getElementById('game-status').innerText = "경기 종료";
+            addCommentary("모든 선수가 들어왔습니다! 결과를 집계합니다...");
+
+            // 결과 정렬
+            const ranks = players.sort((a, b) => a.rank - b.rank);
+            const loser = ranks[ranks.length - 1];
+
+            setTimeout(() => {
+                // 1. 꼴찌 표시
+                document.getElementById('loser-name').innerText = loser.name;
+                document.getElementById('loser-time').innerText = `기록: ${loser.finishTime}s`;
+
+                // 2. 전체 랭킹 리스트 생성
+                const listContainer = document.getElementById('ranking-list');
+                listContainer.innerHTML = '';
+
+                ranks.forEach((p) => {
+                    const item = document.createElement('div');
+                    item.className = 'rank-item';
+
+                    // 1,2,3등 뱃지 처리
+                    let badge = `<span class="font-bold text-gray-500">${p.rank}</span>`;
+                    if (p.rank === 1) badge = '🥇';
+                    if (p.rank === 2) badge = '🥈';
+                    if (p.rank === 3) badge = '🥉';
+
+                    // 꼴찌 표시
+                    let nameStyle = "";
+                    if (p.rank === players.length) {
+                        badge = '💀';
+                        nameStyle = "text-red-600 font-bold decoration-wavy underline";
+                    }
+
+                    item.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="rank-badge text-xl">${badge}</span>
+                            <div class="flex flex-col">
+                                <span class="${nameStyle}">${p.name}</span>
+                            </div>
+                        </div>
+                        <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">${p.finishTime}s</span>
+                    `;
+                    listContainer.appendChild(item);
+                });
+
+                document.getElementById('result-modal').classList.remove('hidden');
+                document.getElementById('reset-btn').classList.remove('hidden');
+            }, 1500);
+        }
+
+        // --- 중계 시스템 ---
+        const comments = [
+            "치열한 접전입니다!",
+            "선두가 계속 바뀌고 있습니다!",
+            "먼지가 휘날립니다!",
+            "커피는 누가 사게 될까요?",
+            "아직 결과는 알 수 없습니다!",
+            "막판 스퍼트가 필요합니다!",
+            "비틀거리는 선수가 보입니다!",
+            "엄청난 지구력입니다!"
+        ];
+
+        function addCommentary(text) {
+            const box = document.getElementById('commentary-box');
+            box.innerHTML = `> ${text}<br>` + box.innerHTML;
+        }
+
+        function randomCommentary() {
+            if (!isRacing) return;
+
+            const leader = players.reduce((prev, current) => (prev.pos > current.pos) ? prev : current);
+            const laster = players.reduce((prev, current) => (prev.pos < current.pos) ? prev : current);
+
+            const r = Math.random();
+            if (r < 0.25) {
+                addCommentary(`🔥 [${leader.name}] 선두 유지!`);
+            } else if (r < 0.5) {
+                addCommentary(`💦 [${laster.name}] 힘을 내야 합니다!`);
+            } else {
+                addCommentary(comments[Math.floor(Math.random() * comments.length)]);
+            }
+        }
+
+        function resetGame() {
+            document.getElementById('result-modal').classList.add('hidden');
+            document.getElementById('race-screen').classList.add('hidden');
+            document.getElementById('setup-screen').classList.remove('hidden');
+            isRacing = false;
+        }
+    </script>
+</body>
+
+</html>
