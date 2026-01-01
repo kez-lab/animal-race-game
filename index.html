@@ -158,9 +158,104 @@
             display: none !important;
         }
 
+        .hidden {
+            display: none !important;
+        }
+
+        /* 트랙 아이템 스타일 */
+        .track-item {
+            position: absolute;
+            bottom: 5px;
+            font-size: 20px;
+            z-index: 5;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .track-item.hit {
+            opacity: 0.3;
+            transform: scale(0.8);
+            filter: grayscale(1);
+        }
+
         /* 결과 화면 애니메이션 */
         .loser-title {
             animation: pulse 1s infinite alternate;
+        }
+
+        /* 아이템 효과 애니메이션 */
+        .boost-effect {
+            animation: boost 0.5s infinite;
+        }
+
+        @keyframes boost {
+            0% {
+                transform: scale(1);
+                filter: brightness(1);
+            }
+
+            50% {
+                transform: scale(1.2);
+                filter: brightness(1.5);
+            }
+
+            100% {
+                transform: scale(1);
+                filter: brightness(1);
+            }
+        }
+
+        .stun-effect {
+            animation: stun 0.2s infinite;
+            filter: grayscale(100%);
+        }
+
+        @keyframes stun {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            25% {
+                transform: rotate(10deg);
+            }
+
+            75% {
+                transform: rotate(-10deg);
+            }
+
+            100% {
+                transform: rotate(0deg);
+            }
+        }
+
+        /* 체크박스 스타일 */
+        .pixel-checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .pixel-checkbox {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #000;
+            background: #fff;
+            margin-right: 10px;
+            position: relative;
+        }
+
+        .pixel-checkbox:checked {
+            background: #66cc66;
+        }
+
+        .pixel-checkbox:checked::after {
+            content: 'v';
+            position: absolute;
+            top: -2px;
+            left: 4px;
+            color: #000;
+            font-weight: bold;
         }
 
         @keyframes pulse {
@@ -192,6 +287,26 @@
             text-align: center;
             margin-right: 10px;
         }
+
+        /* 작은 픽셀 버튼 (X 버튼용) */
+        .pixel-btn-sm {
+            background-color: #eee;
+            border: 2px solid #000;
+            box-shadow: 2px 2px 0px #000;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .pixel-btn-sm:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0px #000;
+        }
     </style>
 </head>
 
@@ -207,6 +322,13 @@
                 <span id="player-count-display" class="text-2xl w-10">4</span>
                 <button onclick="changeCount(1)" class="pixel-btn w-10 h-10 text-xl">+</button>
             </div>
+        </div>
+
+        <div class="mb-6 bg-blue-100 p-2 border-2 border-blue-300 rounded">
+            <label class="pixel-checkbox-label justify-center">
+                <input type="checkbox" id="item-mode-toggle" class="pixel-checkbox">
+                <span>🎲 아이템 모드 (바나나/부스터)</span>
+            </label>
         </div>
         <button onclick="goToNaming()" class="pixel-btn w-full py-4 text-lg mt-4">NEXT ></button>
     </div>
@@ -267,9 +389,11 @@
 
     <script>
         // --- 게임 설정 및 상태 ---
+        // --- 게임 설정 및 상태 ---
         let playerCount = 4;
         let players = [];
         let isRacing = false;
+        let isItemMode = false;
         let startTime = 0;
         let commentaryTimer;
         const trackLength = 85; // % 단위 (피니시 라인 위치 고려)
@@ -310,13 +434,22 @@
             container.innerHTML = '';
             for (let i = 0; i < playerCount; i++) {
                 const div = document.createElement('div');
-                div.className = 'flex gap-2 items-center';
+                div.className = 'flex gap-2 items-center w-full';
                 div.innerHTML = `
                     <div class="w-8 h-8 rounded border-2 border-black flex-shrink-0" style="background-color: ${colors[i]}"></div>
-                    <input type="text" id="p${i}" value="플레이어 ${i + 1}" class="pixel-input" placeholder="이름 입력">
+                    <div class="relative flex-grow flex items-center">
+                        <input type="text" id="p${i}" value="플레이어 ${i + 1}" class="pixel-input pr-10" placeholder="이름 입력">
+                        <button onclick="clearInput(${i})" class="pixel-btn-sm absolute right-2" title="지우기">X</button>
+                    </div>
                 `;
                 container.appendChild(div);
             }
+        }
+
+        function clearInput(id) {
+            const input = document.getElementById(`p${id}`);
+            input.value = '';
+            input.focus();
         }
 
         // --- 레이스 로직 ---
@@ -333,6 +466,13 @@
                     rank: null,
                     finishTime: 0,
                     finished: false,
+                    // 아이템 상태
+                    stunned: false,
+                    stunTime: 0,
+                    boosted: false,
+                    boostTime: 0,
+                    boostTime: 0,
+                    trackItems: [], // 트랙 위 아이템 목록
                     // 속도를 훨씬 낮춤 (0.05 ~ 0.1 사이)
                     speedFactor: 0.05 + Math.random() * 0.05
                 });
@@ -343,6 +483,16 @@
             document.getElementById('race-screen').classList.remove('hidden');
             document.getElementById('result-modal').classList.add('hidden');
             document.getElementById('reset-btn').classList.add('hidden');
+
+            // 설정 확인
+            isItemMode = document.getElementById('item-mode-toggle').checked;
+
+            // 아이템 모드일 경우 아이템 생성
+            if (isItemMode) {
+                players.forEach(p => {
+                    p.trackItems = generateTrackItems();
+                });
+            }
 
             // 트랙 생성
             renderTrack();
@@ -378,10 +528,21 @@
                 lane.className = 'lane pl-2';
                 if (idx % 2 === 0) lane.style.backgroundColor = 'rgba(0,0,0,0.05)';
 
+                // 아이템 렌더링
+                let itemsHtml = '';
+                if (isItemMode && p.trackItems) {
+                    p.trackItems.forEach((item, itemIdx) => {
+                        const icon = item.type === 'BANANA' ? '🍌' : '🚀';
+                        itemsHtml += `<div id="item-${p.id}-${itemIdx}" class="track-item" style="left: ${item.pos}%;">${icon}</div>`;
+                    });
+                }
+
                 lane.innerHTML = `
+                    ${itemsHtml}
                     <div id="horse-${idx}" class="horse">
-                        <div class="horse-sprite text-4xl">
+                        <div id="horse-sprite-${idx}" class="horse-sprite text-4xl relative">
                             ${horseSvg(p.color)}
+                            <div id="status-icon-${idx}" class="absolute -top-4 left-2 text-lg"></div>
                         </div>
                         <div class="text-[10px] mt-1 whitespace-nowrap overflow-hidden text-ellipsis w-24 bg-black bg-opacity-50 px-1 rounded absolute -bottom-4 left-0 text-white border border-black">${p.name}</div>
                         <div id="dust-${idx}" class="dust"></div>
@@ -389,6 +550,22 @@
                 `;
                 track.appendChild(lane);
             });
+        }
+
+        function generateTrackItems() {
+            const items = [];
+            // 레인 당 2~4개 아이템 생성
+            const count = 2 + Math.floor(Math.random() * 3);
+
+            for (let i = 0; i < count; i++) {
+                // 위치: 10% ~ 80% 사이 랜덤 (출발/도착 지점 제외)
+                const pos = 10 + Math.random() * 70;
+                // 타입: 60% 바나나, 40% 부스터
+                const type = Math.random() < 0.6 ? 'BANANA' : 'BOOSTER';
+                items.push({ pos, type, hit: false });
+            }
+            // 위치 순 정렬
+            return items.sort((a, b) => a.pos - b.pos);
         }
 
         function gameLoop() {
@@ -402,18 +579,66 @@
 
                 stillRacing = true;
 
+                // 아이템 로직 (스턴 상태면 이동 불가)
+                if (p.stunned) {
+                    p.stunTime--;
+                    if (p.stunTime <= 0) {
+                        p.stunned = false;
+                        updateStatusIcon(p.id, '');
+                        document.getElementById(`horse-sprite-${p.id}`).classList.remove('stun-effect');
+                    }
+                    return; // 이동 건너뜀
+                }
+
                 // 속도 로직 수정: 전체적으로 느리게 하여 박진감 조성
                 // 기본 이동 + 랜덤 변동
                 let move = (Math.random() * 0.1) + p.speedFactor;
 
-                // 3% 확률로 부스터 (먼지 효과)
-                if (Math.random() < 0.03) {
+                // 부스터 상태
+                if (p.boosted) {
+                    move *= 3.0; // 3배 빨라짐
+                    p.boostTime--;
+                    if (p.boostTime <= 0) {
+                        p.boosted = false;
+                        updateStatusIcon(p.id, '');
+                        document.getElementById(`horse-sprite-${p.id}`).classList.remove('boost-effect');
+                    }
+                }
+
+                // 아이템 모드: 충돌 체크 (물리적 아이템)
+                if (isItemMode && !p.stunned) { // 스턴 상태 아닐 때만 아이템 획득 가능
+                    if (p.trackItems) {
+                        p.trackItems.forEach((item, itemIdx) => {
+                            if (!item.hit && p.pos >= item.pos) {
+                                // 충돌 발생
+                                item.hit = true;
+                                // 시각적 업데이트 (흐릿하게)
+                                const itemEl = document.getElementById(`item-${p.id}-${itemIdx}`);
+                                if (itemEl) itemEl.classList.add('hit');
+
+                                if (item.type === 'BANANA') {
+                                    // 부스터 중이면 바나나 무시 (무적)
+                                    if (p.boosted) {
+                                        addCommentary(`🍌 [${p.name}] 부스터로 바나나 돌파!`);
+                                    } else {
+                                        triggerBanana(p);
+                                    }
+                                } else if (item.type === 'BOOSTER') {
+                                    triggerBooster(p);
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // 3% 확률로 작은 부스터 (먼지 효과) - 기존 로직 유지
+                if (!p.boosted && Math.random() < 0.03) {
                     move *= 4; // 순간 가속
                     showDust(p.id);
                 }
 
-                // 1% 확률로 비틀거림 (멈춤)
-                if (Math.random() < 0.01) move = -0.05; // 살짝 뒤로 가기도 함
+                // 1% 확률로 비틀거림 (멈춤) - 부스터 아닐 때만
+                if (!p.boosted && Math.random() < 0.01) move = -0.05;
 
                 p.pos += move;
 
@@ -438,6 +663,27 @@
             } else {
                 requestAnimationFrame(gameLoop);
             }
+        }
+
+        function triggerBanana(p) {
+            p.stunned = true;
+            p.stunTime = 90; // 약 1.5초 (60fps 기준)
+            updateStatusIcon(p.id, '🍌');
+            document.getElementById(`horse-sprite-${p.id}`).classList.add('stun-effect');
+            addCommentary(`🍌 [${p.name}] 바나나를 밟고 미끄러졌습니다!`);
+        }
+
+        function triggerBooster(p) {
+            p.boosted = true;
+            p.boostTime = 60; // 약 1초
+            updateStatusIcon(p.id, '🚀');
+            document.getElementById(`horse-sprite-${p.id}`).classList.add('boost-effect');
+            addCommentary(`🚀 [${p.name}] 부스터 발동! 엄청난 속도!`);
+            showDust(p.id);
+        }
+
+        function updateStatusIcon(id, icon) {
+            document.getElementById(`status-icon-${id}`).innerText = icon;
         }
 
         function showDust(id) {
