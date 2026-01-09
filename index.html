@@ -308,6 +308,171 @@
             transform: translate(1px, 1px);
             box-shadow: 1px 1px 0px #000;
         }
+
+        /* 긴장감 향상 효과 */
+
+        /* 화면 흔들림 (돌풍 이벤트) */
+        @keyframes screen-shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            10% {
+                transform: translateX(-10px) rotate(-1deg);
+            }
+
+            20% {
+                transform: translateX(10px) rotate(1deg);
+            }
+
+            30% {
+                transform: translateX(-8px) rotate(-0.5deg);
+            }
+
+            40% {
+                transform: translateX(8px) rotate(0.5deg);
+            }
+
+            50% {
+                transform: translateX(-5px);
+            }
+
+            60% {
+                transform: translateX(5px);
+            }
+
+            70% {
+                transform: translateX(-3px);
+            }
+
+            80% {
+                transform: translateX(3px);
+            }
+
+            90% {
+                transform: translateX(-1px);
+            }
+        }
+
+        .shake {
+            animation: screen-shake 0.8s ease-out;
+        }
+
+        /* 슬로우모션 효과 */
+        .slowmo .horse {
+            transition: left 0.3s linear !important;
+        }
+
+        .slowmo .horse-sprite {
+            animation-duration: 0.8s !important;
+        }
+
+        /* 사진 판정 팝업 */
+        .photo-finish-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #ff6b6b, #ffd93d);
+            padding: 20px 40px;
+            border: 6px solid #000;
+            box-shadow: 8px 8px 0px #000;
+            z-index: 100;
+            animation: photo-flash 0.5s ease-out;
+        }
+
+        @keyframes photo-flash {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* 돌풍 이벤트 오버레이 */
+        .wind-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    rgba(200, 230, 255, 0.3) 20%,
+                    rgba(200, 230, 255, 0.5) 50%,
+                    rgba(200, 230, 255, 0.3) 80%,
+                    transparent 100%);
+            pointer-events: none;
+            z-index: 50;
+            animation: wind-blow 0.8s ease-out forwards;
+        }
+
+        @keyframes wind-blow {
+            0% {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* 결승선 빛나는 효과 */
+        .finish-glow {
+            animation: glow-pulse 0.3s infinite alternate;
+        }
+
+        @keyframes glow-pulse {
+            from {
+                box-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700;
+            }
+
+            to {
+                box-shadow: 0 0 20px #ffd700, 0 0 40px #ffd700, 0 0 60px #ffd700;
+            }
+        }
+
+        /* 긴장감 상태 표시 */
+        .tension-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            border: 3px solid;
+            font-size: 12px;
+            z-index: 30;
+        }
+
+        .tension-low {
+            border-color: #4CAF50;
+        }
+
+        .tension-medium {
+            border-color: #FFC107;
+        }
+
+        .tension-high {
+            border-color: #f44336;
+            animation: pulse 0.5s infinite;
+        }
     </style>
 </head>
 
@@ -390,14 +555,20 @@
 
     <script>
         // --- 게임 설정 및 상태 ---
-        // --- 게임 설정 및 상태 ---
         let playerCount = 4;
         let players = [];
         let isRacing = false;
         let isItemMode = false;
         let startTime = 0;
         let commentaryTimer;
-        let savedPlayerNames = {}; // 추가: 저장된 이름들을 담을 객체
+        let savedPlayerNames = {};
+
+        // --- 긴장감 향상 상태 ---
+        let isSlowMotion = false;
+        let windEventTriggered = false;
+        let lastLeaderId = null;
+        let leadChangeCount = 0;
+        let photoFinishCandidates = [];
 
         const trackLength = 85;
 
@@ -525,8 +696,8 @@
                     boostTime: 0,
                     boostTime: 0,
                     trackItems: [], // 트랙 위 아이템 목록
-                    // 속도를 훨씬 낮춤 (0.05 ~ 0.1 사이)
-                    speedFactor: 0.05 + Math.random() * 0.05
+                    // 속도를 대폭 낮춤 (0.01 ~ 0.03)
+                    speedFactor: 0.01 + Math.random() * 0.02
                 });
             }
 
@@ -626,7 +797,31 @@
             let finishedCount = players.filter(p => p.finished).length;
             let stillRacing = false;
 
-            players.forEach(p => {
+            // --- 긴장감 향상: 현재 순위 계산 ---
+            const activePlayers = players.filter(p => !p.finished);
+            const sortedByPos = [...activePlayers].sort((a, b) => b.pos - a.pos);
+            const leader = sortedByPos[0];
+            const trailer = sortedByPos[sortedByPos.length - 1];
+
+            // --- 선두 역전 감지 ---
+            if (leader && lastLeaderId !== null && lastLeaderId !== leader.id) {
+                leadChangeCount++;
+                addCommentary(`🔄 역전! [${leader.name}]이(가) 선두로 치고 나갑니다!`);
+            }
+            if (leader) lastLeaderId = leader.id;
+
+            // --- 슬로우모션: 선두가 80% 이상일 때 활성화 ---
+            if (leader && leader.pos >= trackLength * 0.85 && !isSlowMotion) {
+                isSlowMotion = true;
+                document.getElementById('track').classList.add('slowmo');
+                document.querySelector('.finish-line').classList.add('finish-glow');
+                addCommentary(`⚡ 결승선이 코앞입니다! 긴장감이 최고조!`);
+            }
+
+            // --- 돌풍 이벤트 비활성화 ---
+            // (사용자 요청에 따라 제거됨)
+
+            players.forEach((p, idx) => {
                 if (p.finished) return;
 
                 stillRacing = true;
@@ -642,13 +837,51 @@
                     return; // 이동 건너뜀
                 }
 
-                // 속도 로직 수정: 전체적으로 느리게 하여 박진감 조성
-                // 기본 이동 + 랜덤 변동
-                let move = (Math.random() * 0.1) + p.speedFactor;
+                // --- 기본 속도 계산 (랜덤 폭 증가: 0 ~ 0.08) ---
+                let move = (Math.random() * 0.08) + p.speedFactor;
+
+                // --- 러버밴딩: 순위 기반 속도 보정 ---
+                const currentRank = sortedByPos.findIndex(sp => sp.id === p.id) + 1;
+                const totalActive = sortedByPos.length;
+
+                if (totalActive > 1) {
+                    // 꼴찌에게 +30% 보너스, 선두에게 -10% 패널티
+                    const rankRatio = (currentRank - 1) / (totalActive - 1); // 0(선두) ~ 1(꼴찌)
+                    const rubberBandFactor = 0.9 + (rankRatio * 0.4); // 0.9 ~ 1.3
+                    move *= rubberBandFactor;
+                }
+
+                // --- 후반부: 70% 이후 느려지면서 변동성 폭발 ---
+                if (p.pos >= trackLength * 0.7) {
+                    // 후반부 기본 속도 50% 감소
+                    move *= 0.5;
+
+                    // 큰 가속 (10% 확률, 6~12배 폭발적 가속)
+                    if (Math.random() < 0.10) {
+                        move *= 6 + Math.random() * 6;
+                        showDust(p.id);
+                        if (Math.random() < 0.3) {
+                            addCommentary(`💨 [${p.name}] 막판 스퍼트!`);
+                        }
+                    }
+
+                    // 큰 감속 (8% 확률, 거의 멈춤)
+                    if (Math.random() < 0.08) {
+                        move *= 0.1;
+                        if (Math.random() < 0.3) {
+                            addCommentary(`😰 [${p.name}] 체력이 바닥났나?!`);
+                        }
+                    }
+                }
+
+                // --- 슬로우모션 효과: 속도 50% 감소 ---
+                if (isSlowMotion) {
+                    move *= 0.5;
+                }
 
                 // 부스터 상태
                 if (p.boosted) {
-                    move *= 3.0; // 3배 빨라짐
+                    move *= 3.0;
                     p.boostTime--;
                     if (p.boostTime <= 0) {
                         p.boosted = false;
@@ -657,19 +890,16 @@
                     }
                 }
 
-                // 아이템 모드: 충돌 체크 (물리적 아이템)
-                if (isItemMode && !p.stunned) { // 스턴 상태 아닐 때만 아이템 획득 가능
+                // 아이템 모드: 충돌 체크
+                if (isItemMode && !p.stunned) {
                     if (p.trackItems) {
                         p.trackItems.forEach((item, itemIdx) => {
                             if (!item.hit && p.pos >= item.pos) {
-                                // 충돌 발생
                                 item.hit = true;
-                                // 시각적 업데이트 (흐릿하게)
                                 const itemEl = document.getElementById(`item-${p.id}-${itemIdx}`);
                                 if (itemEl) itemEl.classList.add('hit');
 
                                 if (item.type === 'BANANA') {
-                                    // 부스터 중이면 바나나 무시 (무적)
                                     if (p.boosted) {
                                         addCommentary(`🍌 [${p.name}] 부스터로 바나나 돌파!`);
                                     } else {
@@ -683,14 +913,14 @@
                     }
                 }
 
-                // 3% 확률로 작은 부스터 (먼지 효과) - 기존 로직 유지
-                if (!p.boosted && Math.random() < 0.03) {
-                    move *= 4; // 순간 가속
-                    showDust(p.id);
+                // 기존 랜덤 가속/비틀거림 (후반부가 아닐 때만)
+                if (p.pos < trackLength * 0.7) {
+                    if (!p.boosted && Math.random() < 0.03) {
+                        move *= 4;
+                        showDust(p.id);
+                    }
+                    if (!p.boosted && Math.random() < 0.01) move = -0.05;
                 }
-
-                // 1% 확률로 비틀거림 (멈춤) - 부스터 아닐 때만
-                if (!p.boosted && Math.random() < 0.01) move = -0.05;
 
                 p.pos += move;
 
@@ -699,9 +929,10 @@
                     p.pos = trackLength;
                     p.finished = true;
                     p.rank = finishedCount + 1;
-                    // 시간 기록 (소수점 둘째자리)
                     p.finishTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                    photoFinishCandidates.push({ ...p, finishMs: Date.now() });
                     addCommentary(`🚩 [${p.name}] ${p.finishTime}초 기록으로 골인!`);
+                    finishedCount++;
                 }
 
                 // UI 업데이트
@@ -709,6 +940,14 @@
                 horseEl.style.left = `${p.pos}%`;
                 horseEl.style.zIndex = Math.floor(p.pos);
             });
+
+            // --- 막판 추격 멘트 ---
+            if (leader && trailer && !isSlowMotion) {
+                const gap = leader.pos - trailer.pos;
+                if (gap < 5 && leader.pos > 50 && Math.random() < 0.02) {
+                    addCommentary(`🔥 [${trailer.name}] 맹렬히 추격 중! 차이가 거의 없습니다!`);
+                }
+            }
 
             if (!stillRacing) {
                 endRace();
@@ -745,10 +984,85 @@
             dust.classList.add('active');
         }
 
+        // --- 긴장감 향상: 돌풍 이벤트 ---
+        function triggerWindEvent() {
+            windEventTriggered = true;
+
+            // 화면 흔들림
+            document.body.classList.add('shake');
+            setTimeout(() => document.body.classList.remove('shake'), 800);
+
+            // 바람 오버레이 효과
+            const windOverlay = document.createElement('div');
+            windOverlay.className = 'wind-overlay';
+            document.body.appendChild(windOverlay);
+            setTimeout(() => windOverlay.remove(), 1000);
+
+            // 모든 활성 플레이어 위치 ±15% 랜덤 변동
+            players.forEach(p => {
+                if (!p.finished && !p.stunned) {
+                    const shift = (Math.random() - 0.5) * 30; // -15 ~ +15
+                    p.pos = Math.max(5, Math.min(trackLength - 10, p.pos + shift));
+                }
+            });
+
+            addCommentary(`🌪️ 돌풍 발생! 모든 선수의 위치가 뒤섞입니다!`);
+        }
+
+        // --- 긴장감 향상: 사진 판정 표시 ---
+        function showPhotoFinish() {
+            const popup = document.createElement('div');
+            popup.className = 'photo-finish-popup';
+            popup.innerHTML = `
+                <div style="font-size: 24px; font-weight: bold; text-align: center;">
+                    📸 PHOTO FINISH!<br>
+                    <span style="font-size: 14px;">사진 판정 진행 중...</span>
+                </div>
+            `;
+            document.body.appendChild(popup);
+
+            setTimeout(() => {
+                popup.remove();
+            }, 2000);
+        }
+
+        // --- 긴장감 향상: 상태 초기화 ---
+        function resetTensionState() {
+            isSlowMotion = false;
+            windEventTriggered = false;
+            lastLeaderId = null;
+            leadChangeCount = 0;
+            photoFinishCandidates = [];
+
+            // CSS 클래스 제거
+            const track = document.getElementById('track');
+            if (track) track.classList.remove('slowmo');
+            const finishLine = document.querySelector('.finish-line');
+            if (finishLine) finishLine.classList.remove('finish-glow');
+        }
+
         function endRace() {
             isRacing = false;
             clearInterval(commentaryTimer);
             document.getElementById('game-status').innerText = "경기 종료";
+
+            // --- 사진 판정 체크 ---
+            if (photoFinishCandidates.length >= 2) {
+                const first = photoFinishCandidates[0];
+                const second = photoFinishCandidates[1];
+                const timeDiff = Math.abs(first.finishMs - second.finishMs);
+
+                if (timeDiff < 100) { // 0.1초 이내 동시 도착
+                    showPhotoFinish();
+                    addCommentary(`📸 사진 판정! ${first.name}와 ${second.name}의 초박빙 승부!`);
+                }
+            }
+
+            // --- 역전 횟수 멘트 ---
+            if (leadChangeCount > 3) {
+                addCommentary(`🔥 이번 경기에서 무려 ${leadChangeCount}번의 역전이 있었습니다!`);
+            }
+
             addCommentary("모든 선수가 들어왔습니다! 결과를 집계합니다...");
 
             // 결과 정렬
@@ -795,6 +1109,9 @@
 
                 document.getElementById('result-modal').classList.remove('hidden');
                 document.getElementById('reset-btn').classList.remove('hidden');
+
+                // 슬로우모션 효과 제거
+                resetTensionState();
             }, 1500);
         }
 
@@ -807,7 +1124,14 @@
             "아직 결과는 알 수 없습니다!",
             "막판 스퍼트가 필요합니다!",
             "비틀거리는 선수가 보입니다!",
-            "엄청난 지구력입니다!"
+            "엄청난 지구력입니다!",
+            "심장이 터질 것 같은 순간!",
+            "숨 막히는 레이스!",
+            "역전의 기회가 올 수 있습니다!",
+            "초박빙 승부! 누가 이길까요?",
+            "결승선이 점점 가까워집니다!",
+            "한 순간도 방심할 수 없습니다!",
+            "이건 역대급 레이스입니다!"
         ];
 
         function addCommentary(text) {
@@ -836,6 +1160,9 @@
             document.getElementById('race-screen').classList.add('hidden');
             document.getElementById('setup-screen').classList.remove('hidden');
             isRacing = false;
+
+            // 긴장감 상태 초기화
+            resetTensionState();
         }
     </script>
 </body>
