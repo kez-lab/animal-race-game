@@ -48,7 +48,12 @@
               <span>🏇 참가자 (기수/말)</span>
               <span id="participantCount" class="participant-count">0명</span>
             </div>
-            <button id="clearAllBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;">전체 삭제</button>
+            <div style="display: flex; gap: 6px;">
+              <button id="aiRerollNicknamesBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4);" title="온디바이스 AI로 모든 참가자의 별명을 창의적으로 재작성">
+                🪄 AI 별명 일괄 생성
+              </button>
+              <button id="clearAllBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;">전체 삭제</button>
+            </div>
           </div>
 
           <!-- Custom Preset Bar & Management -->
@@ -320,6 +325,16 @@
           <div class="bar-line" style="width: 3px; margin-left: 3px;"></div>
           <div class="bar-line" style="width: 2px; margin-left: 4px;"></div>
           <div class="bar-line" style="width: 4px; margin-left: 2px;"></div>
+        </div>
+      </div>
+
+      <!-- On-Device AI Sports News 1-Paragraph Story -->
+      <div class="ai-article-card" id="aiArticleCard">
+        <div class="ai-article-header">
+          <span>🧠 온디바이스 AI 특종 속보</span>
+        </div>
+        <div class="ai-article-content" id="aiArticleContent">
+          <!-- Dynamically generated AI story -->
         </div>
       </div>
 

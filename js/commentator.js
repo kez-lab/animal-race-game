@@ -3,50 +3,49 @@
  */
 
 import { COMMENTARY_MESSAGES } from './presets.js';
+import { aiEngine } from './aiEngine.js';
 
 export class Commentator {
   constructor(containerElement) {
     this.container = containerElement;
     this.messages = [];
-    this.maxMessages = 4;
-    this.lastLeadHorseId = null;
-    this.lastCommentTime = 0;
-    this.minInterval = 1.6; // 최소 멘트 간격(초)
+    this.maxMessages = 40;
+    this.lastLeadChangeTime = 0;
   }
 
   reset() {
     this.messages = [];
-    this.lastLeadHorseId = null;
-    this.lastCommentTime = 0;
     if (this.container) {
-      this.container.innerHTML = '<div class="comment-item init">🎙️ 출발 준비 중... 중계석 대기 완료!</div>';
+      this.container.innerHTML = '';
     }
   }
 
   addMessage(text, type = 'normal') {
-    const timeStr = new Date().toTimeString().slice(3, 8);
-    const msgObj = { text, type, time: timeStr, id: Date.now() + Math.random() };
-
-    this.messages.push(msgObj);
+    const timestamp = new Date();
+    const timeStr = `${String(timestamp.getSeconds()).padStart(2, '0')}.${Math.floor(timestamp.getMilliseconds() / 100)}`;
+    
+    this.messages.push({ text, type, time: timeStr });
     if (this.messages.length > this.maxMessages) {
       this.messages.shift();
     }
-
     this.render();
   }
 
   render() {
     if (!this.container) return;
 
-    this.container.innerHTML = this.messages.map(m => {
-      let icon = '📢';
-      if (m.type === 'boost') icon = '⚡️';
-      else if (m.type === 'slip') icon = '💦';
-      else if (m.type === 'danger') icon = '🚨';
-      else if (m.type === 'spurt') icon = '🔥';
-      else if (m.type === 'finish') icon = '🏁';
-      else if (m.type === 'penalty') icon = '☕️';
+    const icons = {
+      normal: '💬',
+      boost: '⚡️',
+      slip: '💦',
+      danger: '🚨',
+      spurt: '🔥',
+      finish: '🏁',
+      penalty: '☕️'
+    };
 
+    this.container.innerHTML = this.messages.map(m => {
+      const icon = icons[m.type] || '💬';
       return `<div class="comment-item ${m.type} animate-in">
         <span class="comment-icon">${icon}</span>
         <span class="comment-text">${m.text}</span>
@@ -63,42 +62,24 @@ export class Commentator {
   }
 
   onEvent(type, horse, info) {
-    const stratTag = horse.strategy ? ` AI (${horse.strategy.name})` : '';
+    const aiComments = aiEngine.generateLiveCommentary(type, horse, info);
+    const chosen = aiComments[Math.floor(Math.random() * aiComments.length)];
 
-    if (type === 'boost') {
-      const templates = COMMENTARY_MESSAGES.boost;
-      const tpl = templates[Math.floor(Math.random() * templates.length)];
-      this.addMessage(tpl.replace('{name}', horse.name), 'boost');
-    } else if (type === 'slip') {
-      const templates = COMMENTARY_MESSAGES.slip;
-      const tpl = templates[Math.floor(Math.random() * templates.length)];
-      this.addMessage(tpl.replace('{name}', horse.name), 'slip');
-    } else if (type === 'itemPickup') {
-      this.addMessage(`🎁 [${horse.name}${stratTag}], [${info.item.name}] 획득!`, 'normal');
-    } else if (type === 'itemUseBooster') {
-      this.addMessage(`🚀 [${horse.name}${stratTag}], 부스터 발동! 폭풍 질주!`, 'boost');
-    } else if (type === 'itemUseBanana') {
-      this.addMessage(`🍌 [${horse.name}${stratTag}], 추격자를 향해 바나나 투척!`, 'normal');
-    } else if (type === 'itemUseShield') {
-      this.addMessage(`🛡️ [${horse.name}${stratTag}], 0.1초 반응으로 방어막 전개!`, 'normal');
-    } else if (type === 'itemUseLightning') {
-      this.addMessage(`⚡️ [${horse.name}${stratTag}], 번개 발동! 선두권 일제 감전!`, 'danger');
-    } else if (type === 'itemUseMissile') {
-      this.addMessage(`🎯 [${horse.name}${stratTag}], 선두 [${info.target.name}]님을 향해 회심의 저격 미사일 발사!`, 'spurt');
-    } else if (type === 'itemUseMagnet') {
-      this.addMessage(`🧲 [${horse.name}${stratTag}], 자석으로 선두를 향해 초고속 견인 질주!`, 'boost');
-    } else if (type === 'shieldBlock') {
-      this.addMessage(`🛡️ [${horse.name}${stratTag}], 공격을 방어막으로 완벽 방어!`, 'finish');
-    } else if (type === 'obstacleHit') {
-      this.addMessage(`🍌 앗! [${horse.name}]님, 바나나 밟고 빙글빙글 스핀!`, 'slip');
-    } else if (type === 'missileHit') {
-      this.addMessage(`💥 쾅! [${horse.name}]님, 미사일 직격타로 일시 정지!`, 'danger');
-    }
+    let msgType = 'normal';
+    if (type === 'boost' || type === 'itemUseBooster' || type === 'itemUseMagnet') msgType = 'boost';
+    else if (type === 'slip' || type === 'obstacleHit') msgType = 'slip';
+    else if (type === 'itemUseLightning' || type === 'missileHit') msgType = 'danger';
+    else if (type === 'itemUseMissile') msgType = 'spurt';
+    else if (type === 'shieldBlock') msgType = 'finish';
+
+    this.addMessage(chosen, msgType);
   }
 
   onLeadChange(newLeader, oldLeader) {
-    if (Math.random() < 0.6) {
-      this.addMessage(`🔄 역전! [${newLeader.name}]님이 선두로 치고 나옵니다!`, 'boost');
+    if (Math.random() < 0.7) {
+      const aiComments = aiEngine.generateLiveCommentary('leadChange', newLeader);
+      const chosen = aiComments[Math.floor(Math.random() * aiComments.length)];
+      this.addMessage(chosen, 'boost');
     }
   }
 

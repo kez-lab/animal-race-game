@@ -5,6 +5,7 @@
 
 import { HORSE_COLORS, OFFICE_NICKNAMES, DEFAULT_PRESETS, AI_STRATEGIES, COFFEE_MENUS, FUNNY_RECEIPT_NOTES } from './presets.js';
 import { sound } from './sound.js';
+import { aiEngine } from './aiEngine.js';
 import { RaceEngine } from './raceEngine.js';
 import { CanvasRenderer } from './canvasRenderer.js';
 import { Commentator } from './commentator.js';
@@ -49,6 +50,7 @@ class OfficeDerbyApp {
     this.participantListEl = document.getElementById('participantList');
     this.participantCountEl = document.getElementById('participantCount');
     this.clearAllBtn = document.getElementById('clearAllBtn');
+    this.aiRerollNicknamesBtn = document.getElementById('aiRerollNicknamesBtn');
     this.startRaceBtn = document.getElementById('startRaceBtn');
     this.randomCoffeeMenuCheck = document.getElementById('randomCoffeeMenuCheck');
 
@@ -67,6 +69,7 @@ class OfficeDerbyApp {
     this.podiumName1 = document.getElementById('podiumName1');
     this.podiumName2 = document.getElementById('podiumName2');
     this.podiumName3 = document.getElementById('podiumName3');
+    this.aiArticleContent = document.getElementById('aiArticleContent');
     this.receiptPayerName = document.getElementById('receiptPayerName');
     this.receiptRuleDesc = document.getElementById('receiptRuleDesc');
     this.receiptDate = document.getElementById('receiptDate');
@@ -258,6 +261,11 @@ class OfficeDerbyApp {
       }
     });
 
+    // 4.5. 온디바이스 AI 별명 일괄 생성
+    this.aiRerollNicknamesBtn.addEventListener('click', () => {
+      this.rerollAllAINicknames();
+    });
+
     // 5. 게임 모드 라디오 카드 (아이템전 vs 스피드전)
     document.querySelectorAll('input[name="gameMode"]').forEach(radio => {
       radio.addEventListener('change', (e) => {
@@ -381,7 +389,24 @@ class OfficeDerbyApp {
     });
   }
 
-  addSingleParticipant(name) {
+  async rerollAllAINicknames() {
+    if (this.participants.length === 0) {
+      alert('참가자를 먼저 추가해주세요!');
+      return;
+    }
+    this.showToast('🧠 온디바이스 AI가 참가자 맞춤형 별명을 생성 중입니다...');
+    for (let i = 0; i < this.participants.length; i++) {
+      const p = this.participants[i];
+      const stratName = p.strategy ? p.strategy.name : '돌진';
+      p.nickname = await aiEngine.generateNickname(p.name, stratName);
+    }
+    this.renderParticipantList();
+    this.saveParticipants();
+    this.showToast('✨ 모든 참가자의 AI 별명이 생성되었습니다!');
+    sound.playClick();
+  }
+
+  async addSingleParticipant(name) {
     if (this.participants.length >= 12) {
       alert('참가자는 최대 12명까지 등록 가능합니다.');
       return;
@@ -389,13 +414,13 @@ class OfficeDerbyApp {
 
     const idx = this.participants.length;
     const color = HORSE_COLORS[idx % HORSE_COLORS.length];
-    const randomNick = OFFICE_NICKNAMES[Math.floor(Math.random() * OFFICE_NICKNAMES.length)];
     const strategy = AI_STRATEGIES[idx % AI_STRATEGIES.length];
+    const aiNick = await aiEngine.generateNickname(name, strategy.name);
 
     this.participants.push({
       id: Date.now() + Math.floor(Math.random() * 1000),
       name: name.slice(0, 12),
-      nickname: randomNick,
+      nickname: aiNick,
       color: color,
       strategy: strategy
     });
@@ -737,6 +762,16 @@ class OfficeDerbyApp {
     this.receiptMenuItems.innerHTML = menuHtml;
     this.receiptTotalAmount.textContent = `${totalEstimatedPrice.toLocaleString()}원`;
 
+    // 온디바이스 AI 특종 기사 1면 비동기 생성
+    if (this.aiArticleContent) {
+      this.aiArticleContent.textContent = '🧠 온디바이스 AI가 경기 분석 기사를 작성 중입니다...';
+      aiEngine.generatePostRaceArticle(winner, penaltyHorses, totalCount, this.receiptRuleDesc.textContent, totalEstimatedPrice).then(article => {
+        if (this.aiArticleContent) {
+          this.aiArticleContent.textContent = article;
+        }
+      });
+    }
+
     const randomFootnote = FUNNY_RECEIPT_NOTES[Math.floor(Math.random() * FUNNY_RECEIPT_NOTES.length)];
     this.receiptFooterNotes.innerHTML = `
       ${randomFootnote}<br>
@@ -777,19 +812,21 @@ class OfficeDerbyApp {
   copyFormattedResultToClipboard() {
     if (!this.cachedResultData) return;
 
-    const { finalRankings, penaltyHorses, totalEstimatedPrice } = this.cachedResultData;
-    const winner = finalRankings[0];
-    const penaltyNames = penaltyHorses.map(h => `${h.name}님`).join(', ');
-
     const rankingText = finalRankings.map(h => {
       const isPenalty = penaltyHorses.some(ph => ph.id === h.id);
       const mark = h.rank === 1 ? '👑' : (isPenalty ? '☕️' : '▫️');
-      return `${mark} ${h.rank}위: ${h.name} (${h.finishTime ? h.finishTime.toFixed(1) : '-'}초)`;
+      const strat = h.strategy ? ` [AI:${h.strategy.name}]` : '';
+      return `${mark} ${h.rank}위: ${h.name} (#${h.nickname})${strat} (${h.finishTime ? h.finishTime.toFixed(1) : '-'}초)`;
     }).join('\n');
+
+    const aiArticleSnippet = this.aiArticleContent && this.aiArticleContent.textContent
+      ? `\n📰 ${this.aiArticleContent.textContent.split('\n')[0]}\n`
+      : '';
 
     const formattedMessage = `
 [오피스 더비] 오늘의 커피내기 경마 결과 발표! 🏇☕️
 ==========================================
+${aiArticleSnippet}
 👑 1위 (명예의 전당): ${winner.name}님!
 🎯 커피 결제자 (당첨): ${penaltyNames} ☕️
 📌 벌칙 룰: ${this.receiptRuleDesc.textContent}
