@@ -8,6 +8,7 @@ import { sound } from './sound.js';
 import { aiEngine } from './aiEngine.js';
 import { calculatePenaltyHorses, calculateEstimatedPrice, RULE_DESCRIPTIONS } from './penalty.js';
 import { PresetManager, STORAGE_KEYS } from './presetManager.js';
+import { HorseGenerator } from './horseGenerator.js';
 import { RaceEngine } from './raceEngine.js';
 import { CanvasRenderer } from './canvasRenderer.js';
 import { Commentator } from './commentator.js';
@@ -16,6 +17,8 @@ class OfficeDerbyApp {
   constructor() {
     this.participants = [];
     this.customPresets = [];
+    this.stableHorses = HorseGenerator.getDefaultStable();
+    this.currentDraftingIndex = null;
     this.selectedDistance = 1600;
     this.selectedGameMode = 'item'; // 'item' | 'speed'
     this.selectedRule = 'last1';
@@ -53,8 +56,16 @@ class OfficeDerbyApp {
     this.participantCountEl = document.getElementById('participantCount');
     this.clearAllBtn = document.getElementById('clearAllBtn');
     this.aiRerollNicknamesBtn = document.getElementById('aiRerollNicknamesBtn');
+    this.aiAutoDraftHorsesBtn = document.getElementById('aiAutoDraftHorsesBtn');
     this.startRaceBtn = document.getElementById('startRaceBtn');
     this.randomCoffeeMenuCheck = document.getElementById('randomCoffeeMenuCheck');
+
+    // 마구간 드래프트 모달
+    this.horseDraftModal = document.getElementById('horseDraftModal');
+    this.draftModalSubtitle = document.getElementById('draftModalSubtitle');
+    this.generateNewAIHorseBtn = document.getElementById('generateNewAIHorseBtn');
+    this.stableHorseGrid = document.getElementById('stableHorseGrid');
+    this.closeDraftModalBtn = document.getElementById('closeDraftModalBtn');
 
     // 레이스 화면 요소
     this.raceCanvas = document.getElementById('raceCanvas');
@@ -188,13 +199,25 @@ class OfficeDerbyApp {
     this.participants = preset.members.map((name, idx) => {
       const color = HORSE_COLORS[idx % HORSE_COLORS.length];
       const nickname = OFFICE_NICKNAMES[idx % OFFICE_NICKNAMES.length];
-      const strategy = AI_STRATEGIES[idx % AI_STRATEGIES.length];
-      return { id: idx + 1, name, nickname, color, strategy };
+      const defaultHorse = this.stableHorses[idx % this.stableHorses.length];
+      const strategy = defaultHorse ? defaultHorse.strategy : AI_STRATEGIES[idx % AI_STRATEGIES.length];
+      const horseName = defaultHorse ? defaultHorse.name : `${name}의 명마`;
+      const stats = defaultHorse ? { ...defaultHorse.stats } : HorseGenerator.generateBalancedStats();
+
+      return {
+        id: idx + 1,
+        name,
+        nickname,
+        horseName,
+        color,
+        strategy,
+        stats
+      };
     });
 
     this.renderParticipantList();
     this.saveParticipants();
-    this.showToast(`'${preset.name}' 명단이 불러와졌습니다.`);
+    this.showToast(`'${preset.name}' 명단 및 경주마가 불러와졌습니다.`);
     sound.playClick();
   }
 
@@ -255,6 +278,22 @@ class OfficeDerbyApp {
     // 4.5. 온디바이스 AI 별명 일괄 생성
     this.aiRerollNicknamesBtn.addEventListener('click', () => {
       this.rerollAllAINicknames();
+    });
+
+    // 4.6. 온디바이스 AI 밸런스마 전원 자동 배정
+    this.aiAutoDraftHorsesBtn.addEventListener('click', () => {
+      this.autoDraftHorsesForAllParticipants();
+    });
+
+    // 4.7. 마구간 모달 제어
+    this.generateNewAIHorseBtn.addEventListener('click', () => {
+      this.generateNewAIHorseForStable();
+    });
+    this.closeDraftModalBtn.addEventListener('click', () => {
+      this.horseDraftModal.classList.remove('active');
+    });
+    this.horseDraftModal.addEventListener('click', (e) => {
+      if (e.target === this.horseDraftModal) this.horseDraftModal.classList.remove('active');
     });
 
     // 5. 게임 모드 라디오 카드 (아이템전 vs 스피드전)
@@ -405,15 +444,18 @@ class OfficeDerbyApp {
 
     const idx = this.participants.length;
     const color = HORSE_COLORS[idx % HORSE_COLORS.length];
-    const strategy = AI_STRATEGIES[idx % AI_STRATEGIES.length];
+    const defaultHorse = this.stableHorses[idx % this.stableHorses.length];
+    const strategy = defaultHorse ? defaultHorse.strategy : AI_STRATEGIES[idx % AI_STRATEGIES.length];
     const aiNick = await aiEngine.generateNickname(name, strategy.name);
 
     this.participants.push({
       id: Date.now() + Math.floor(Math.random() * 1000),
       name: name.slice(0, 12),
       nickname: aiNick,
+      horseName: defaultHorse ? defaultHorse.name : `${name}의 명마`,
       color: color,
-      strategy: strategy
+      strategy: strategy,
+      stats: defaultHorse ? { ...defaultHorse.stats } : HorseGenerator.generateBalancedStats()
     });
 
     this.renderParticipantList();
@@ -460,6 +502,9 @@ class OfficeDerbyApp {
 
     this.participantListEl.innerHTML = this.participants.map((p, idx) => {
       const strat = p.strategy || AI_STRATEGIES[idx % AI_STRATEGIES.length];
+      const stats = p.stats || { speed: 70, accel: 70, stamina: 70, luck: 70, intellect: 70 };
+      const horseName = p.horseName || `${p.name}의 말`;
+
       return `
         <div class="participant-item">
           <div class="horse-info">
@@ -469,6 +514,9 @@ class OfficeDerbyApp {
             <div class="horse-meta">
               <div class="horse-name-row">
                 <span class="horse-name">${p.name}</span>
+                <button type="button" class="horse-draft-badge" data-index="${idx}" title="전용 경주마 선택 및 능력치 보기" style="background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.35); color: var(--accent-cyan); font-size: 11px; padding: 2px 7px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+                  🏇 ${horseName} <span style="font-size: 10px; color: var(--text-muted);">(⚡️${stats.speed} 🚀${stats.accel} 🔋${stats.stamina})</span>
+                </button>
                 <button type="button" class="horse-ai-btn" data-index="${idx}" title="${strat.desc}">
                   ${strat.icon} ${strat.name}
                 </button>
@@ -483,6 +531,14 @@ class OfficeDerbyApp {
       `;
     }).join('');
 
+    // 이벤트 바인딩
+    this.participantListEl.querySelectorAll('.horse-draft-badge').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const index = parseInt(e.currentTarget.dataset.index, 10);
+        this.openHorseDraftModal(index);
+      });
+    });
+
     this.participantListEl.querySelectorAll('.horse-ai-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const index = parseInt(e.currentTarget.dataset.index, 10);
@@ -496,6 +552,133 @@ class OfficeDerbyApp {
         this.removeParticipant(index);
       });
     });
+  }
+
+  openHorseDraftModal(participantIndex) {
+    this.currentDraftingIndex = participantIndex;
+    const participant = this.participants[participantIndex];
+    if (!participant) return;
+
+    this.draftModalSubtitle.innerHTML = `<strong>[${participant.name}]</strong> 님의 전용 경주마를 선택하거나 새 AI 밸런스마를 분양받으세요.`;
+    this.renderStableGrid();
+    this.horseDraftModal.classList.add('active');
+    sound.playClick();
+  }
+
+  renderStableGrid() {
+    const currentParticipant = this.participants[this.currentDraftingIndex];
+    const currentHorseName = currentParticipant ? currentParticipant.horseName : '';
+
+    this.stableHorseGrid.innerHTML = this.stableHorses.map((horse, idx) => {
+      const isSelected = currentHorseName === horse.name;
+      const stats = horse.stats;
+      const strat = horse.strategy || AI_STRATEGIES[0];
+
+      return `
+        <div class="stable-horse-card ${isSelected ? 'selected' : ''}">
+          <div class="horse-card-header">
+            <div class="horse-silk-badge" style="background: ${horse.color.body}; border-color: ${horse.color.border}; color: ${horse.color.num};">
+              🏇
+            </div>
+            <div class="horse-card-info">
+              <div class="horse-card-name" title="${horse.name}">${horse.name}</div>
+              <div class="horse-card-title">${horse.title} | ${strat.icon} ${strat.name}</div>
+            </div>
+          </div>
+
+          <div class="horse-card-lore">
+            "${horse.lore}"
+          </div>
+
+          <div class="stat-bars-container">
+            <div class="stat-row">
+              <span class="stat-label">⚡️ 최고속도</span>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.speed / 100) * 100}%; background: #EF4444;"></div></div>
+              <span class="stat-val">${stats.speed}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">🚀 가속력</span>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.accel / 100) * 100}%; background: #F59E0B;"></div></div>
+              <span class="stat-val">${stats.accel}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">🔋 지구력</span>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.stamina / 100) * 100}%; background: #10B981;"></div></div>
+              <span class="stat-val">${stats.stamina}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">🍀 행운</span>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.luck / 100) * 100}%; background: #8B5CF6;"></div></div>
+              <span class="stat-val">${stats.luck}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">🧠 지능</span>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.intellect / 100) * 100}%; background: #06B6D4;"></div></div>
+              <span class="stat-val">${stats.intellect}</span>
+            </div>
+          </div>
+
+          <button type="button" class="horse-select-btn" data-index="${idx}">
+            ${isSelected ? '✅ 현재 선택됨' : '🏇 이 말로 출전하기'}
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    this.stableHorseGrid.querySelectorAll('.horse-select-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const hIdx = parseInt(e.currentTarget.dataset.index, 10);
+        this.selectHorseForParticipant(this.stableHorses[hIdx]);
+      });
+    });
+  }
+
+  selectHorseForParticipant(horse) {
+    if (this.currentDraftingIndex === null) return;
+    const participant = this.participants[this.currentDraftingIndex];
+    if (!participant) return;
+
+    participant.horseName = horse.name;
+    participant.strategy = horse.strategy;
+    participant.stats = { ...horse.stats };
+    if (horse.color) participant.color = horse.color;
+
+    this.horseDraftModal.classList.remove('active');
+    this.renderParticipantList();
+    this.saveParticipants();
+    this.showToast(`🏇 [${participant.name}] 님의 경주마가 '${horse.name}' (으)로 변경되었습니다!`);
+    sound.playClick();
+  }
+
+  async generateNewAIHorseForStable() {
+    this.showToast('🧠 온디바이스 AI가 350pt 밸런스 경주마를 창조 중입니다...');
+    const newHorse = await HorseGenerator.generateAIHorse();
+    this.stableHorses.unshift(newHorse);
+    this.renderStableGrid();
+    this.showToast(`✨ 새 명마 '${newHorse.name}' 이(가) 마구간에 입사했습니다!`);
+    sound.playClick();
+  }
+
+  autoDraftHorsesForAllParticipants() {
+    if (this.participants.length === 0) {
+      alert('참가자를 먼저 추가해주세요!');
+      return;
+    }
+
+    // 셔플된 마구간 말들을 각 참가자에게 배정
+    const shuffled = [...this.stableHorses].sort(() => Math.random() - 0.5);
+    this.participants.forEach((p, idx) => {
+      const horse = shuffled[idx % shuffled.length];
+      p.horseName = horse.name;
+      p.strategy = horse.strategy;
+      p.stats = { ...horse.stats };
+      p.color = HORSE_COLORS[idx % HORSE_COLORS.length];
+    });
+
+    this.renderParticipantList();
+    this.saveParticipants();
+    this.showToast('🎲 모든 참가자에게 밸런스 경주마가 자동 배정되었습니다!');
+    sound.playClick();
   }
 
   switchView(viewName) {

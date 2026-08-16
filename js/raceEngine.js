@@ -55,23 +55,32 @@ export class RaceEngine {
     const standardBaseSpeed = distance / avgRaceDuration;
 
     this.horses = participants.map((p, index) => {
-      const baseVariation = (Math.random() * 0.08 - 0.04) * standardBaseSpeed;
-      const initialSpeed = standardBaseSpeed + baseVariation;
+      const stats = p.stats || { speed: 70, accel: 70, stamina: 70, luck: 70, intellect: 70 };
+      
+      // 1. 스피드 스탯(50~90) 반영: 기준 속도의 0.95배 ~ 1.12배
+      const speedMultiplier = 0.85 + 0.3 * (stats.speed / 100);
+      const baseVariation = (Math.random() * 0.04 - 0.02) * standardBaseSpeed;
+      const initialSpeed = (standardBaseSpeed * speedMultiplier) + baseVariation;
+
+      // 2. 스태미나 스탯(50~90) 반영: 최대 스태미나 80 ~ 120
+      const initialStamina = 60 + stats.stamina * 0.5;
 
       return {
         id: p.id || index + 1,
         name: p.name,
+        horseName: p.horseName || p.name,
         nickname: p.nickname || '질주마',
         color: p.color,
         strategy: p.strategy || null, // 온디바이스 AI 성향
+        stats: stats, // 5대 밸런스 능력치 (Speed, Accel, Stamina, Luck, Intellect)
         lane: index,
         distance: 0,
         progress: 0,
         speed: initialSpeed,
         baseSpeed: initialSpeed,
         targetSpeed: initialSpeed,
-        stamina: 85 + Math.random() * 15,
-        maxStamina: 100,
+        stamina: initialStamina,
+        maxStamina: initialStamina,
         state: 'running', // 'running' | 'boost' | 'slip' | 'tired' | 'finish'
         stateDuration: 0,
         stateMessage: '',
@@ -180,13 +189,14 @@ export class RaceEngine {
         }
       }
 
-      // 스태미나 소모 및 회복
+      // 스태미나 소모 및 회복 (stamina 스탯 높을수록 덜 지침)
+      const staminaDrainRate = 3.0 * (1.3 - 0.6 * (horse.stats.stamina / 100));
       if (horse.state === 'boost') {
-        horse.stamina = Math.max(0, horse.stamina - 15 * dt);
+        horse.stamina = Math.max(0, horse.stamina - (12 + staminaDrainRate) * dt);
       } else if (horse.state === 'slip') {
-        horse.stamina = Math.min(horse.maxStamina, horse.stamina + 6 * dt);
+        horse.stamina = Math.min(horse.maxStamina, horse.stamina + 8 * dt);
       } else {
-        horse.stamina = Math.max(0, horse.stamina - 3 * dt);
+        horse.stamina = Math.max(0, horse.stamina - staminaDrainRate * dt);
       }
 
       if (horse.stamina <= 5 && horse.state === 'running') {
@@ -195,11 +205,12 @@ export class RaceEngine {
         horse.targetSpeed = horse.baseSpeed * 0.75;
       }
 
-      // 속도 보간 (Lerp)
-      const lerpSpeed = 3.5;
+      // 속도 보간 (Lerp) - 가속력(accel) 스탯(50~90) 반영
+      const accelMultiplier = 0.7 + 0.6 * (horse.stats.accel / 100);
+      const lerpSpeed = 3.5 * accelMultiplier;
       horse.speed += (horse.targetSpeed - horse.speed) * Math.min(1, dt * lerpSpeed);
 
-      const noise = (Math.sin(this.elapsedTime * 4 + horse.id) * 0.035) * horse.baseSpeed;
+      const noise = (Math.sin(this.elapsedTime * 4 + horse.id) * 0.03) * horse.baseSpeed;
       const actualSpeed = Math.max(5, horse.speed + noise);
 
       // 거리 이동

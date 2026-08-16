@@ -48,7 +48,10 @@
               <span>🏇 참가자 (기수/말)</span>
               <span id="participantCount" class="participant-count">0명</span>
             </div>
-            <div style="display: flex; gap: 6px;">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button id="aiAutoDraftHorsesBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; color: var(--accent-cyan); border-color: rgba(6, 182, 212, 0.4);" title="모든 참가자에게 밸런스 경주마를 자동 배정합니다">
+                🎲 AI 말 자동 배정
+              </button>
               <button id="aiRerollNicknamesBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4);" title="온디바이스 AI로 모든 참가자의 별명을 창의적으로 재작성">
                 🪄 AI 별명 일괄 생성
               </button>
@@ -363,6 +366,36 @@
         </button>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Horse Stable & Draft Modal -->
+  <div id="horseDraftModal" class="modal-overlay">
+    <div class="modal-container" style="max-width: 680px;">
+      <div class="result-header">
+        <div class="result-title">🏇 경주마 마구간 & AI 드래프트</div>
+        <div class="result-subtitle" id="draftModalSubtitle">
+          참가자의 전용 경주마를 선택하거나 새 AI 밸런스마를 분양받으세요.
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+        <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">
+          ⚖️ 모든 경주마는 <strong style="color: var(--accent-gold);">총합 350pt</strong> 밸런스 예산 내에서 특화되어 있습니다.
+        </span>
+        <button id="generateNewAIHorseBtn" class="btn-secondary" style="color: var(--accent-cyan); border-color: rgba(6, 182, 212, 0.4); font-size: 12px; padding: 5px 12px;">
+          ✨ 새 AI 밸런스마 즉석 분양
+        </button>
+      </div>
+
+      <!-- Stable Horse Cards Grid -->
+      <div id="stableHorseGrid" class="stable-horse-grid">
+        <!-- Dynamically rendered horse cards -->
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 18px;">
+        <button id="closeDraftModalBtn" class="btn-secondary" style="flex: 1; justify-content: center;">닫기</button>
+      </div>
     </div>
   </div>
 
