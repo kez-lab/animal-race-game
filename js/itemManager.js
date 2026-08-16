@@ -88,44 +88,31 @@ export class ItemManager {
       }
 
       case 'banana': {
-        const trailingHorses = horses
-          .filter(h => h.id !== horse.id && h.distance < horse.distance && !h.finished)
-          .sort((a, b) => b.distance - a.distance);
+        // 나보다 앞선 순위의 선두 주자들만 타겟팅하여 전방 레인에 함정 투척 (뒷순위 영향 없음)
+        const leadingHorses = horses
+          .filter(h => h.id !== horse.id && h.rank < horse.rank && h.distance > horse.distance && !h.finished)
+          .sort((a, b) => a.distance - b.distance);
 
-        if (trailingHorses.length > 0) {
-          const target1 = trailingHorses[0];
-          const dropDist1 = Math.min(horse.distance - 10, target1.distance + 35);
+        if (leadingHorses.length > 0) {
+          const target1 = leadingHorses[0];
+          const dropDist1 = target1.distance + 35;
           obstacles.push({
             id: `banana_${Date.now()}_1`,
             type: 'banana',
             lane: target1.lane,
-            distance: Math.max(10, dropDist1),
+            distance: Math.min(totalDistance - 10, dropDist1),
             targetName: target1.name
           });
 
-          if (trailingHorses.length >= 2 && Math.random() < 0.6) {
-            const target2 = trailingHorses[1];
-            const dropDist2 = Math.min(horse.distance - 15, target2.distance + 40);
+          if (leadingHorses.length >= 2 && Math.random() < 0.5) {
+            const target2 = leadingHorses[1];
+            const dropDist2 = target2.distance + 40;
             obstacles.push({
               id: `banana_${Date.now()}_2`,
               type: 'banana',
               lane: target2.lane,
-              distance: Math.max(10, dropDist2),
+              distance: Math.min(totalDistance - 10, dropDist2),
               targetName: target2.name
-            });
-          }
-        } else {
-          const leadingHorses = horses
-            .filter(h => h.id !== horse.id && h.distance > horse.distance && !h.finished)
-            .sort((a, b) => a.distance - b.distance);
-          if (leadingHorses.length > 0) {
-            const target = leadingHorses[0];
-            obstacles.push({
-              id: `banana_${Date.now()}_lead`,
-              type: 'banana',
-              lane: target.lane,
-              distance: target.distance + 45,
-              targetName: target.name
             });
           }
         }
@@ -143,7 +130,8 @@ export class ItemManager {
       case 'lightning': {
         onEvent('itemUseLightning', horse, { item });
         horses.forEach(target => {
-          if (target.id !== horse.id && target.rank < horse.rank && !target.finished) {
+          // 나보다 앞선 순위의 선두 주자들만 번개 감전 (뒷순위 영향 없음)
+          if (target.id !== horse.id && target.rank < horse.rank && target.distance > horse.distance && !target.finished) {
             if (target.shieldActive) {
               target.shieldActive = false;
               onEvent('shieldBlock', target, { attacker: horse });
@@ -156,7 +144,8 @@ export class ItemManager {
       }
 
       case 'missile': {
-        const target = horses.find(h => h.rank === 1 && h.id !== horse.id && !h.finished);
+        // 나보다 앞선 1위 선두마만 타겟팅 저격
+        const target = horses.find(h => h.rank === 1 && h.id !== horse.id && h.distance > horse.distance && !h.finished);
         if (target) {
           projectiles.push({
             id: `missile_${Date.now()}`,
@@ -169,13 +158,14 @@ export class ItemManager {
           });
           onEvent('itemUseMissile', horse, { item, target });
         } else {
-          triggerEvent(horse, 'boost', `🚀 [${horse.name}] 미사일 로켓 부스터!`, 2.0, 1.4);
+          triggerEvent(horse, 'boost', `🚀 [${horse.name}] 미사일 로켓 부스터!`, 1.5, 1.3);
         }
         break;
       }
 
       case 'magnet': {
-        const lead = horses.find(h => h.rank === 1 && h.id !== horse.id && !h.finished);
+        // 나보다 앞선 1위 선두마를 향해 견인
+        const lead = horses.find(h => h.rank === 1 && h.id !== horse.id && h.distance > horse.distance && !h.finished);
         const boostVal = lead ? 1.55 : 1.35;
         triggerEvent(horse, 'boost', `🧲 [${horse.name}] 자석 견인 질주!`, item.duration, boostVal);
         onEvent('itemUseMagnet', horse, { item });

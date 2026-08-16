@@ -554,16 +554,21 @@ export class CanvasRenderer {
     this.ctx.save();
     this.ctx.translate(x, y - 36);
 
-    const aiIcon = horse.strategy ? horse.strategy.icon : '';
-    const displayName = aiIcon ? `${horse.name} ${aiIcon}` : horse.name;
-    this.ctx.font = 'bold 12px Pretendard, sans-serif';
-    const textWidth = this.ctx.measureText(displayName).width;
-    const badgeWidth = Math.max(78, textWidth + 36);
+    const nameText = horse.name || '참가자';
+    const nickText = horse.nickname ? `#${horse.nickname}` : '';
+
+    this.ctx.font = 'bold 11.5px Pretendard, sans-serif';
+    const nameWidth = this.ctx.measureText(nameText).width;
+
+    this.ctx.font = '10px Pretendard, sans-serif';
+    const nickWidth = nickText ? this.ctx.measureText(nickText).width + 6 : 0;
+
+    const badgeWidth = Math.max(88, nameWidth + nickWidth + 34);
     const badgeHeight = 22;
 
     // 배지 배경
-    this.ctx.fillStyle = 'rgba(26, 32, 44, 0.88)';
-    this.ctx.strokeStyle = horse.color.border || '#A0AEC0';
+    this.ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    this.ctx.strokeStyle = horse.color.border || '#94A3B8';
     this.ctx.lineWidth = 1.5;
 
     this.ctx.beginPath();
@@ -572,59 +577,34 @@ export class CanvasRenderer {
     this.ctx.stroke();
 
     // 순위 동그라미
-    const rankColors = { 1: '#ECC94B', 2: '#CBD5E0', 3: '#ED8936' };
-    const rColor = rankColors[horse.rank] || '#4A5568';
+    const rankColors = { 1: '#F59E0B', 2: '#CBD5E1', 3: '#F97316' };
+    const rColor = rankColors[horse.rank] || '#475569';
 
     this.ctx.fillStyle = rColor;
     this.ctx.beginPath();
     this.ctx.arc(-badgeWidth / 2 + 12, 0, 7, 0, Math.PI * 2);
     this.ctx.fill();
 
-    this.ctx.fillStyle = horse.rank <= 3 ? '#1A202C' : '#FFFFFF';
+    this.ctx.fillStyle = horse.rank <= 3 ? '#0F172A' : '#FFFFFF';
     this.ctx.font = 'bold 9px Pretendard, sans-serif';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(`${horse.rank}`, -badgeWidth / 2 + 12, 0);
 
-    // 이름 + AI 아이콘
+    // 이름 (Name) 렌더링
     this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = 'bold 11px Pretendard, sans-serif';
+    this.ctx.font = 'bold 11.5px Pretendard, sans-serif';
     this.ctx.textAlign = 'left';
-    this.ctx.fillText(displayName, -badgeWidth / 2 + 23, 0);
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(nameText, -badgeWidth / 2 + 24, 0);
 
-    // 상태 아이콘 / 말풍선
-    if (horse.heldItem) {
-      this.renderStateBubble(0, -18, `${horse.heldItem.icon} ${horse.heldItem.name}`, '#D97706');
-    } else if (horse.stateMessage) {
-      const bg = horse.state === 'boost' ? '#DD6B20' : (horse.state === 'slip' ? '#3182CE' : '#4A5568');
-      this.renderStateBubble(0, -18, horse.stateMessage, bg);
-    } else if (horse.state === 'boost') {
-      this.renderStateBubble(0, -18, '⚡️ 부스터!', '#DD6B20');
-    } else if (horse.state === 'slip') {
-      this.renderStateBubble(0, -18, '💦 미끄러짐!', '#3182CE');
-    } else if (horse.state === 'tired') {
-      this.renderStateBubble(0, -18, '😫 방전!', '#718096');
-    } else if (horse.finished) {
-      this.renderStateBubble(0, -18, `🏁 ${horse.rank}등 골인`, '#38A169');
+    // 별명 (Nickname) 렌더링
+    if (nickText) {
+      this.ctx.fillStyle = '#94A3B8';
+      this.ctx.font = '10px Pretendard, sans-serif';
+      this.ctx.fillText(nickText, -badgeWidth / 2 + 24 + nameWidth + 5, 0);
     }
 
-    this.ctx.restore();
-  }
-
-  renderStateBubble(bx, by, text, bg) {
-    this.ctx.save();
-    this.ctx.font = 'bold 10px Pretendard, sans-serif';
-    const tw = this.ctx.measureText(text).width + 12;
-
-    this.ctx.fillStyle = bg;
-    this.ctx.beginPath();
-    this.ctx.roundRect ? this.ctx.roundRect(bx - tw / 2, by - 8, tw, 16, 4) : this.ctx.fillRect(bx - tw / 2, by - 8, tw, 16);
-    this.ctx.fill();
-
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(text, bx, by);
     this.ctx.restore();
   }
 

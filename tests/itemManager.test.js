@@ -35,7 +35,7 @@ describe('ItemManager', () => {
     assert.ok(horses[0].heldItem);
   });
 
-  it('useItem (Banana): 선두 주자가 바나나를 던지면 뒤따르는 추격자의 레인에 바나나가 매설되어야 한다', () => {
+  it('useItem (Banana): 후속 주자가 바나나를 던지면 자신보다 앞선 선두 주자의 레인에 바나나가 매설되어야 한다', () => {
     const horses = [
       { id: 1, name: '선두', lane: 0, distance: 400, rank: 1, finished: false },
       { id: 2, name: '추격자', lane: 1, distance: 350, rank: 2, finished: false }
@@ -43,8 +43,9 @@ describe('ItemManager', () => {
     const obstacles = [];
     const events = [];
 
+    // 2위 추격자가 바나나 투척
     ItemManager.executeItem({
-      horse: horses[0],
+      horse: horses[1],
       item: ITEM_TYPES.BANANA,
       horses,
       totalDistance: 1000,
@@ -56,8 +57,30 @@ describe('ItemManager', () => {
 
     assert.equal(obstacles.length, 1);
     assert.equal(obstacles[0].type, 'banana');
-    assert.equal(obstacles[0].lane, 1); // 2위 추격자의 레인(1)에 매설!
-    assert.ok(obstacles[0].distance > 350); // 추격자 앞쪽에 설치
+    assert.equal(obstacles[0].lane, 0); // 1위 선두의 레인(0) 전방에 매설!
+    assert.ok(obstacles[0].distance > 400); // 선두 앞쪽에 설치
+  });
+
+  it('useItem (Banana): 1위 선두 주자가 바나나를 쓰면 앞선 사람이 없으므로 후속 주자에게 영향이 가지 않아야 한다', () => {
+    const horses = [
+      { id: 1, name: '선두', lane: 0, distance: 400, rank: 1, finished: false },
+      { id: 2, name: '추격자', lane: 1, distance: 350, rank: 2, finished: false }
+    ];
+    const obstacles = [];
+
+    // 1위 선두가 바나나 사용 시 (앞선 순위가 없음)
+    ItemManager.executeItem({
+      horse: horses[0],
+      item: ITEM_TYPES.BANANA,
+      horses,
+      totalDistance: 1000,
+      obstacles,
+      projectiles: [],
+      triggerEvent: () => {},
+      onEvent: () => {}
+    });
+
+    assert.equal(obstacles.length, 0); // 후속 주자에게는 영향 없음!
   });
 
   it('checkObstacleCollisions (Shield Block): 쉴드를 켠 말이 바나나를 밟으면 쉴드가 깨지고 미끄러지지 않아야 한다', () => {
