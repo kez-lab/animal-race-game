@@ -575,6 +575,12 @@ class OfficeDerbyApp {
       sound.playSlip();
     } else if (type === 'itemPickup') {
       sound.playItemPickup();
+      const startX = 140;
+      const finishX = this.renderer.trackPixelLength - 220;
+      const trackWidthSpan = finishX - startX;
+      const horseX = startX + horse.progress * trackWidthSpan;
+      const horseY = this.renderer.trackTop + horse.lane * this.renderer.laneHeight + this.renderer.laneHeight * 0.55;
+      this.renderer.addItemPopParticle(horseX, horseY);
     } else if (type === 'itemUseShield' || type === 'shieldBlock') {
       sound.playShield();
     } else if (type === 'itemUseLightning') {

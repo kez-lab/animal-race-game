@@ -120,9 +120,9 @@ export class CanvasRenderer {
 
     // 3.5. 아이템 박스 및 트랙 장애물(바나나) 렌더링
     if (engine.gameMode === 'item') {
-      this.renderItemBoxes(engine.itemBoxes, startX, trackWidthSpan);
-      this.renderObstacles(engine.obstacles, startX, trackWidthSpan);
-      this.renderProjectiles(engine.projectiles, startX, trackWidthSpan);
+      this.renderItemBoxes(engine.itemBoxes, startX, trackWidthSpan, engine.totalDistance);
+      this.renderObstacles(engine.obstacles, startX, trackWidthSpan, engine.totalDistance);
+      this.renderProjectiles(engine.projectiles, startX, trackWidthSpan, engine.totalDistance);
     }
 
     // 4. 파티클 렌더링 (말 뒤 먼지 등)
@@ -295,11 +295,10 @@ export class CanvasRenderer {
     this.ctx.fillText('FINISH', finishX + 15, this.trackTop - 14);
   }
 
-  renderItemBoxes(boxes, startX, trackWidthSpan) {
+  renderItemBoxes(boxes, startX, trackWidthSpan, totalDistance) {
     boxes.forEach(box => {
       if (box.collected) return;
-      const bx = startX + (box.distance / this.trackPixelLength) * trackWidthSpan * (this.trackPixelLength / 1200);
-      const actualX = startX + (box.distance / (1200)) * trackWidthSpan;
+      const actualX = startX + (box.distance / totalDistance) * trackWidthSpan;
       const by = this.trackTop + box.lane * this.laneHeight + this.laneHeight * 0.55;
 
       const bob = Math.sin(this.animTime * 6 + box.lane) * 3;
@@ -308,7 +307,7 @@ export class CanvasRenderer {
       this.ctx.translate(actualX, by + bob);
 
       // 박스 외곽 발광
-      this.ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+      this.ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
       this.ctx.beginPath();
       this.ctx.arc(0, 0, 18, 0, Math.PI * 2);
       this.ctx.fill();
@@ -324,7 +323,7 @@ export class CanvasRenderer {
 
       // 물음표 아이콘
       this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.font = 'bold 12px Pretendard, sans-serif';
+      this.ctx.font = 'bold 13px Pretendard, sans-serif';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText('?', 0, 1);
@@ -333,9 +332,9 @@ export class CanvasRenderer {
     });
   }
 
-  renderObstacles(obstacles, startX, trackWidthSpan) {
+  renderObstacles(obstacles, startX, trackWidthSpan, totalDistance) {
     obstacles.forEach(obs => {
-      const ox = startX + (obs.distance / 1200) * trackWidthSpan;
+      const ox = startX + (obs.distance / totalDistance) * trackWidthSpan;
       const oy = this.trackTop + obs.lane * this.laneHeight + this.laneHeight * 0.55;
 
       this.ctx.save();
@@ -578,7 +577,12 @@ export class CanvasRenderer {
     this.ctx.fillText(nameText, -badgeWidth / 2 + 23, 0);
 
     // 상태 아이콘 / 말풍선
-    if (horse.state === 'boost') {
+    if (horse.heldItem) {
+      this.renderStateBubble(0, -18, `${horse.heldItem.icon} ${horse.heldItem.name}`, '#D97706');
+    } else if (horse.stateMessage) {
+      const bg = horse.state === 'boost' ? '#DD6B20' : (horse.state === 'slip' ? '#3182CE' : '#4A5568');
+      this.renderStateBubble(0, -18, horse.stateMessage, bg);
+    } else if (horse.state === 'boost') {
       this.renderStateBubble(0, -18, '⚡️ 부스터!', '#DD6B20');
     } else if (horse.state === 'slip') {
       this.renderStateBubble(0, -18, '💦 미끄러짐!', '#3182CE');
@@ -606,6 +610,21 @@ export class CanvasRenderer {
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(text, bx, by);
     this.ctx.restore();
+  }
+
+  addItemPopParticle(x, y) {
+    const colors = ['#F59E0B', '#FDE68A', '#38BDF8', '#FFFFFF'];
+    for (let i = 0; i < 14; i++) {
+      this.particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.5) * 6,
+        size: 3 + Math.random() * 3,
+        alpha: 1.0,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        life: 0.45
+      });
+    }
   }
 
   addDustParticle(x, y, color) {
