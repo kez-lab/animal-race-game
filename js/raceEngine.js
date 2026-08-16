@@ -72,6 +72,7 @@ export class RaceEngine {
         name: p.name,
         nickname: p.nickname || '질주마',
         color: p.color,
+        strategy: p.strategy || null, // 온디바이스 AI 성향
         lane: index,
         distance: 0,
         progress: 0,
@@ -90,6 +91,7 @@ export class RaceEngine {
         eventCooldown: 2.0 + Math.random() * 2.5,
         // 아이템전 전용 프로퍼티
         heldItem: null,
+        heldItemTimer: 0,
         shieldActive: false,
         shieldDuration: 0,
         spinAngle: 0,
@@ -158,6 +160,11 @@ export class RaceEngine {
       // 아이템전 모드: 아이템 박스 충돌 체크
       if (this.gameMode === 'item') {
         this.checkItemBoxCollisions(horse);
+        // 온디바이스 AI 전략 판단 루프
+        if (horse.heldItem) {
+          horse.heldItemTimer += dt;
+          this.evaluateAIStrategy(horse, dt);
+        }
       }
 
       // 아이템전 모드: 트랙 바나나 밟음 체크
@@ -242,6 +249,72 @@ export class RaceEngine {
       this.isFinished = true;
       this.isRunning = false;
       this.onAllFinished(this.horses);
+    }
+  }
+
+  evaluateAIStrategy(horse, dt) {
+    if (!horse.heldItem || horse.finished) return;
+
+    const strat = horse.strategy ? horse.strategy.id : 'speedster';
+    const item = horse.heldItem;
+    const distRemaining = this.totalDistance - horse.distance;
+    const isLeader = horse.rank === 1;
+    const isTail = horse.rank >= this.horses.length - 1;
+
+    let shouldActivate = false;
+
+    // 1. 돌진형 AI (Speedster): 아이템 획득 후 0.15초 내 즉시 발동
+    if (strat === 'speedster') {
+      if (horse.heldItemTimer >= 0.15) shouldActivate = true;
+    }
+    // 2. 저격수 AI (Sniper): 미사일/번개는 선두가 500m 이내이거나 결승선 접근 시 저격
+    else if (strat === 'sniper') {
+      if (item.id === 'missile' || item.id === 'lightning') {
+        if (!isLeader && (distRemaining < 600 || horse.heldItemTimer > 3.0)) {
+          shouldActivate = true;
+        }
+      } else {
+        if (horse.heldItemTimer >= 0.3) shouldActivate = true;
+      }
+    }
+    // 3. 가디언 AI (Guardian): 쉴드는 날아오는 미사일이나 위기 감지 시 0.1초 반응
+    else if (strat === 'guardian') {
+      if (item.id === 'shield') {
+        const incomingMissile = this.projectiles.find(p => p.targetHorse.id === horse.id);
+        if (incomingMissile || isLeader || horse.heldItemTimer > 4.0) {
+          shouldActivate = true;
+        }
+      } else {
+        if (horse.heldItemTimer >= 0.25) shouldActivate = true;
+      }
+    }
+    // 4. 트릭스터 AI (Trickster): 바나나는 뒤에 쫓아오는 말이 가까울 때 투척
+    else if (strat === 'trickster') {
+      if (item.id === 'banana') {
+        const trailingHorse = this.horses.find(h => h.id !== horse.id && h.distance < horse.distance && (horse.distance - h.distance) < 40);
+        if (trailingHorse || isLeader || horse.heldItemTimer > 2.5) {
+          shouldActivate = true;
+        }
+      } else {
+        if (horse.heldItemTimer >= 0.2) shouldActivate = true;
+      }
+    }
+    // 5. 승부사 AI (Wildcard): 후위권일 때 폭발적 가속
+    else if (strat === 'wildcard') {
+      if (isTail || horse.heldItemTimer >= 0.3) {
+        shouldActivate = true;
+      }
+    } else {
+      if (horse.heldItemTimer >= 0.3) shouldActivate = true;
+    }
+
+    // 타임아웃 최대 5초 강제 발동
+    if (horse.heldItemTimer >= 5.0) shouldActivate = true;
+
+    if (shouldActivate) {
+      this.useItem(horse, horse.heldItem);
+      horse.heldItem = null;
+      horse.heldItemTimer = 0;
     }
   }
 

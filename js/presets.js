@@ -72,6 +72,50 @@ export const ITEM_TYPES = {
   }
 };
 
+// 온디바이스 AI 성향 & 전략 아키타입 (On-Device AI Strategies)
+export const AI_STRATEGIES = [
+  {
+    id: 'sniper',
+    name: '저격수',
+    icon: '🎯',
+    tag: '결정타 노림수',
+    desc: '미사일/번개를 아껴두었다가 선두가 결승선에 다가올 때 결정적 카운터 저격!',
+    color: '#E53E3E'
+  },
+  {
+    id: 'speedster',
+    name: '돌진형',
+    icon: '⚡️',
+    tag: '초반 선두 장악',
+    desc: '가속/자석 아이템 획득 즉시 폭풍 발동! 초반부터 압도적 거리 차이를 벌림.',
+    color: '#D97706'
+  },
+  {
+    id: 'guardian',
+    name: '철벽 수호자',
+    icon: '🛡️',
+    tag: '0.1초 반응 방어',
+    desc: '쉴드를 보유하고 있다가 미사일/번개 공격 감지 시 0.1초 만에 자동 전개!',
+    color: '#0284C7'
+  },
+  {
+    id: 'trickster',
+    name: '트릭스터',
+    icon: '🍌',
+    tag: '지능형 바나나 함정',
+    desc: '후속 추격자가 20m 이내로 바짝 붙었을 때 완벽한 타이밍에 바나나 기습 투척!',
+    color: '#CA8A04'
+  },
+  {
+    id: 'wildcard',
+    name: '승부사',
+    icon: '🎲',
+    tag: '꼴찌 반등 폭발',
+    desc: '순위가 하위권으로 밀릴수록 아이템 위력 1.3배 폭발! 대역전극을 노리는 이변형 AI.',
+    color: '#7C3AED'
+  }
+];
+
 export const DEFAULT_PRESETS = [
   {
     id: 'preset_dev',

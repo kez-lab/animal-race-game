@@ -3,7 +3,7 @@
  * 아이템전 모드 및 로컬 스토리지 기반 커스텀 프리셋 관리 지원
  */
 
-import { HORSE_COLORS, OFFICE_NICKNAMES, DEFAULT_PRESETS, COFFEE_MENUS, FUNNY_RECEIPT_NOTES } from './presets.js';
+import { HORSE_COLORS, OFFICE_NICKNAMES, DEFAULT_PRESETS, AI_STRATEGIES, COFFEE_MENUS, FUNNY_RECEIPT_NOTES } from './presets.js';
 import { sound } from './sound.js';
 import { RaceEngine } from './raceEngine.js';
 import { CanvasRenderer } from './canvasRenderer.js';
@@ -106,7 +106,10 @@ class OfficeDerbyApp {
       try {
         const parsed = JSON.parse(savedParticipants);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          this.participants = parsed;
+          this.participants = parsed.map((p, idx) => ({
+            ...p,
+            strategy: p.strategy || AI_STRATEGIES[idx % AI_STRATEGIES.length]
+          }));
         }
       } catch (e) {
         console.warn('Failed to parse saved participants', e);
@@ -114,7 +117,6 @@ class OfficeDerbyApp {
     }
 
     if (this.participants.length === 0) {
-      // 첫 프리셋 적용
       if (this.customPresets.length > 0) {
         this.applyPreset(this.customPresets[0]);
       }
@@ -165,7 +167,6 @@ class OfficeDerbyApp {
       </div>
     `).join('');
 
-    // 클릭 시 프리셋 적용
     this.presetChipsContainer.querySelectorAll('.preset-chip-title').forEach(el => {
       el.addEventListener('click', (e) => {
         const index = parseInt(e.currentTarget.dataset.index, 10);
@@ -173,7 +174,6 @@ class OfficeDerbyApp {
       });
     });
 
-    // 삭제 버튼
     this.presetChipsContainer.querySelectorAll('.preset-chip-del').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -194,7 +194,8 @@ class OfficeDerbyApp {
     this.participants = preset.members.map((name, idx) => {
       const color = HORSE_COLORS[idx % HORSE_COLORS.length];
       const nickname = OFFICE_NICKNAMES[idx % OFFICE_NICKNAMES.length];
-      return { id: idx + 1, name, nickname, color };
+      const strategy = AI_STRATEGIES[idx % AI_STRATEGIES.length];
+      return { id: idx + 1, name, nickname, color, strategy };
     });
 
     this.renderParticipantList();
@@ -389,16 +390,33 @@ class OfficeDerbyApp {
     const idx = this.participants.length;
     const color = HORSE_COLORS[idx % HORSE_COLORS.length];
     const randomNick = OFFICE_NICKNAMES[Math.floor(Math.random() * OFFICE_NICKNAMES.length)];
+    const strategy = AI_STRATEGIES[idx % AI_STRATEGIES.length];
 
     this.participants.push({
       id: Date.now() + Math.floor(Math.random() * 1000),
       name: name.slice(0, 12),
       nickname: randomNick,
-      color: color
+      color: color,
+      strategy: strategy
     });
 
     this.renderParticipantList();
     this.saveParticipants();
+    sound.playClick();
+  }
+
+  cycleHorseAIStrategy(index) {
+    const horse = this.participants[index];
+    if (!horse) return;
+
+    const currentStratId = horse.strategy ? horse.strategy.id : 'speedster';
+    const currentIdx = AI_STRATEGIES.findIndex(s => s.id === currentStratId);
+    const nextStrat = AI_STRATEGIES[(currentIdx + 1) % AI_STRATEGIES.length];
+
+    horse.strategy = nextStrat;
+    this.renderParticipantList();
+    this.saveParticipants();
+    this.showToast(`🧠 [${horse.name}] AI 성향: '${nextStrat.icon} ${nextStrat.name}' (${nextStrat.tag})`);
     sound.playClick();
   }
 
@@ -424,20 +442,37 @@ class OfficeDerbyApp {
       return;
     }
 
-    this.participantListEl.innerHTML = this.participants.map((p, idx) => `
-      <div class="participant-item">
-        <div class="horse-info">
-          <div class="horse-number-badge" style="background: ${p.color.body}; border: 2px solid ${p.color.border};">
-            ${idx + 1}
+    this.participantListEl.innerHTML = this.participants.map((p, idx) => {
+      const strat = p.strategy || AI_STRATEGIES[idx % AI_STRATEGIES.length];
+      return `
+        <div class="participant-item">
+          <div class="horse-info">
+            <div class="horse-number-badge" style="background: ${p.color.body}; border: 2px solid ${p.color.border};">
+              ${idx + 1}
+            </div>
+            <div class="horse-meta">
+              <div class="horse-name-row">
+                <span class="horse-name">${p.name}</span>
+                <button type="button" class="horse-ai-btn" data-index="${idx}" title="${strat.desc}">
+                  ${strat.icon} ${strat.name}
+                </button>
+              </div>
+              <div class="horse-sub-row">
+                <span class="horse-nick">#${p.nickname}</span>
+              </div>
+            </div>
           </div>
-          <div class="horse-meta">
-            <span class="horse-name">${p.name}</span>
-            <span class="horse-nick">#${p.nickname}</span>
-          </div>
+          <button class="delete-btn" data-index="${idx}" title="삭제">✕</button>
         </div>
-        <button class="delete-btn" data-index="${idx}" title="삭제">✕</button>
-      </div>
-    `).join('');
+      `;
+    }).join('');
+
+    this.participantListEl.querySelectorAll('.horse-ai-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const index = parseInt(e.currentTarget.dataset.index, 10);
+        this.cycleHorseAIStrategy(index);
+      });
+    });
 
     this.participantListEl.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -549,6 +584,7 @@ class OfficeDerbyApp {
       const isLead = h.rank === 1;
       const isTail = h.rank === horses.length;
       const distPercent = Math.round(h.progress * 100);
+      const aiIcon = h.strategy ? `<span style="font-size: 11px;" title="${h.strategy.name} (${h.strategy.tag})">${h.strategy.icon}</span>` : '';
 
       return `
         <div class="live-rank-item ${isLead ? 'is-lead' : ''} ${isTail ? 'is-tail' : ''}">
@@ -556,6 +592,7 @@ class OfficeDerbyApp {
             <span class="rank-badge-num ${badgeClass}">#${h.rank}</span>
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${h.color.body};"></span>
             <span>${h.name}</span>
+            ${aiIcon}
             ${h.shieldActive ? '<span style="font-size: 11px;">🛡️</span>' : ''}
           </div>
           <div class="rank-meter-val">
@@ -710,6 +747,7 @@ class OfficeDerbyApp {
       const isWinner = h.rank === 1;
       const isPenalty = penaltyHorses.some(ph => ph.id === h.id);
       const timeStr = `${h.finishTime ? h.finishTime.toFixed(1) : '-'}초`;
+      const stratTag = h.strategy ? `<span style="font-size: 10px; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 10px; color: var(--text-secondary);">${h.strategy.icon} ${h.strategy.name}</span>` : '';
 
       let badgeIcon = `#${h.rank}`;
       if (h.rank === 1) badgeIcon = '🥇 1위';
@@ -722,6 +760,7 @@ class OfficeDerbyApp {
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-weight: 700; font-size: 12px; color: ${isWinner ? 'var(--accent-gold)' : (isPenalty ? 'var(--accent-rose)' : 'inherit')}">${badgeIcon}</span>
             <span style="font-weight: 600;">${h.name}</span>
+            ${stratTag}
             <span style="font-size: 11px; color: var(--text-muted);">(${h.nickname})</span>
           </div>
           <div style="font-family: monospace; font-size: 12px; font-weight: 600;">

@@ -63,6 +63,8 @@ export class Commentator {
   }
 
   onEvent(type, horse, info) {
+    const stratTag = horse.strategy ? ` AI (${horse.strategy.name})` : '';
+
     if (type === 'boost') {
       const templates = COMMENTARY_MESSAGES.boost;
       const tpl = templates[Math.floor(Math.random() * templates.length)];
@@ -72,21 +74,21 @@ export class Commentator {
       const tpl = templates[Math.floor(Math.random() * templates.length)];
       this.addMessage(tpl.replace('{name}', horse.name), 'slip');
     } else if (type === 'itemPickup') {
-      this.addMessage(`🎁 [${horse.name}]님, [${info.item.name}] 획득!`, 'normal');
+      this.addMessage(`🎁 [${horse.name}${stratTag}], [${info.item.name}] 획득!`, 'normal');
     } else if (type === 'itemUseBooster') {
-      this.addMessage(`🚀 [${horse.name}]님, 부스터 발동! 폭풍 질주!`, 'boost');
+      this.addMessage(`🚀 [${horse.name}${stratTag}], 부스터 발동! 폭풍 질주!`, 'boost');
     } else if (type === 'itemUseBanana') {
-      this.addMessage(`🍌 [${horse.name}]님, 트랙에 바나나 투척!`, 'normal');
+      this.addMessage(`🍌 [${horse.name}${stratTag}], 추격자를 향해 바나나 투척!`, 'normal');
     } else if (type === 'itemUseShield') {
-      this.addMessage(`🛡️ [${horse.name}]님, 방어막 생성!`, 'normal');
+      this.addMessage(`🛡️ [${horse.name}${stratTag}], 0.1초 반응으로 방어막 전개!`, 'normal');
     } else if (type === 'itemUseLightning') {
-      this.addMessage(`⚡️ [${horse.name}]님, 번개 발동! 선두권 전원 감전!`, 'danger');
+      this.addMessage(`⚡️ [${horse.name}${stratTag}], 번개 발동! 선두권 일제 감전!`, 'danger');
     } else if (type === 'itemUseMissile') {
-      this.addMessage(`🎯 [${horse.name}]님, 선두 [${info.target.name}]님을 향해 미사일 발사!`, 'spurt');
+      this.addMessage(`🎯 [${horse.name}${stratTag}], 선두 [${info.target.name}]님을 향해 회심의 저격 미사일 발사!`, 'spurt');
     } else if (type === 'itemUseMagnet') {
-      this.addMessage(`🧲 [${horse.name}]님, 자석으로 선두를 향해 견인 질주!`, 'boost');
+      this.addMessage(`🧲 [${horse.name}${stratTag}], 자석으로 선두를 향해 초고속 견인 질주!`, 'boost');
     } else if (type === 'shieldBlock') {
-      this.addMessage(`🛡️ [${horse.name}]님, 방어막으로 공격 완벽 방어!`, 'finish');
+      this.addMessage(`🛡️ [${horse.name}${stratTag}], 공격을 방어막으로 완벽 방어!`, 'finish');
     } else if (type === 'obstacleHit') {
       this.addMessage(`🍌 앗! [${horse.name}]님, 바나나 밟고 빙글빙글 스핀!`, 'slip');
     } else if (type === 'missileHit') {

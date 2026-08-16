@@ -431,6 +431,13 @@ body {
 .horse-meta {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+}
+
+.horse-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .horse-name {
@@ -438,9 +445,36 @@ body {
   font-size: 14px;
 }
 
+.horse-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .horse-nick {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.horse-ai-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 1px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.horse-ai-btn:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--accent-gold);
+  color: #FFFFFF;
 }
 
 .delete-btn {

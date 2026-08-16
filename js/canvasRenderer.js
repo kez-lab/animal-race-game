@@ -539,10 +539,11 @@ export class CanvasRenderer {
     this.ctx.save();
     this.ctx.translate(x, y - 36);
 
-    const nameText = horse.name;
+    const aiIcon = horse.strategy ? horse.strategy.icon : '';
+    const displayName = aiIcon ? `${horse.name} ${aiIcon}` : horse.name;
     this.ctx.font = 'bold 12px Pretendard, sans-serif';
-    const textWidth = this.ctx.measureText(nameText).width;
-    const badgeWidth = Math.max(72, textWidth + 36);
+    const textWidth = this.ctx.measureText(displayName).width;
+    const badgeWidth = Math.max(78, textWidth + 36);
     const badgeHeight = 22;
 
     // 배지 배경
@@ -570,11 +571,11 @@ export class CanvasRenderer {
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(`${horse.rank}`, -badgeWidth / 2 + 12, 0);
 
-    // 이름
+    // 이름 + AI 아이콘
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 11px Pretendard, sans-serif';
     this.ctx.textAlign = 'left';
-    this.ctx.fillText(nameText, -badgeWidth / 2 + 23, 0);
+    this.ctx.fillText(displayName, -badgeWidth / 2 + 23, 0);
 
     // 상태 아이콘 / 말풍선
     if (horse.heldItem) {
