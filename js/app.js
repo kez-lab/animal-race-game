@@ -12,6 +12,7 @@ import { HorseGenerator } from './horseGenerator.js';
 import { RaceEngine } from './raceEngine.js';
 import { CanvasRenderer } from './canvasRenderer.js';
 import { Commentator } from './commentator.js';
+import { AILoader } from './aiLoader.js';
 
 class OfficeDerbyApp {
   constructor() {
@@ -420,14 +421,32 @@ class OfficeDerbyApp {
       alert('참가자를 먼저 추가해주세요!');
       return;
     }
-    this.showToast('🧠 온디바이스 AI가 참가자 맞춤형 별명을 생성 중입니다...');
-    for (let i = 0; i < this.participants.length; i++) {
-      const p = this.participants[i];
-      const stratName = p.strategy ? p.strategy.name : '돌진';
-      p.nickname = await aiEngine.generateNickname(p.name, stratName);
-    }
-    this.renderParticipantList();
-    this.saveParticipants();
+
+    AILoader.setButtonLoading(this.aiRerollNicknamesBtn, true, 'AI 별명 생성 중...');
+
+    const participantNames = this.participants.map(p => p.name).join(', ');
+    await AILoader.run({
+      title: '온디바이스 AI 사내 별명 신경망 생성 중...',
+      subtitle: `참가자 [${participantNames}] 맞춤형 페르소나 및 별명 합성`,
+      duration: 850,
+      logs: [
+        { progress: 20, text: `[NPU] Chrome Built-in AI / Quantized Neural Engine Activated` },
+        { progress: 45, text: `[ANALYSIS] Analyzing office persona for ${this.participants.length} racers...` },
+        { progress: 75, text: `[SYNTHESIS] Generating comedic office nicknames & token mapping...` },
+        { progress: 100, text: `[COMPLETE] Successfully generated ${this.participants.length} AI nicknames` }
+      ],
+      onComplete: async () => {
+        for (let i = 0; i < this.participants.length; i++) {
+          const p = this.participants[i];
+          const stratName = p.strategy ? p.strategy.name : '돌진';
+          p.nickname = await aiEngine.generateNickname(p.name, stratName);
+        }
+        this.renderParticipantList();
+        this.saveParticipants();
+      }
+    });
+
+    AILoader.setButtonLoading(this.aiRerollNicknamesBtn, false);
     this.showToast('✨ 모든 참가자의 AI 별명이 생성되었습니다!');
     sound.playClick();
   }
@@ -681,32 +700,65 @@ class OfficeDerbyApp {
   }
 
   async generateNewAIHorseForStable() {
-    this.showToast('🧠 온디바이스 AI가 350pt 밸런스 경주마를 창조 중입니다...');
-    const newHorse = await HorseGenerator.generateAIHorse();
-    this.stableHorses.unshift(newHorse);
-    this.renderStableGrid();
-    this.showToast(`✨ 새 명마 '${newHorse.name}' 이(가) 마구간에 입사했습니다!`);
+    AILoader.setButtonLoading(this.generateNewAIHorseBtn, true, 'AI 명마 창조 중...');
+
+    await AILoader.run({
+      title: '온디바이스 AI 350pt 밸런스 경주마 창조 중...',
+      subtitle: '350pt 스탯 예산 최적화 & 사내 아키타입 신경망 합성',
+      duration: 850,
+      logs: [
+        { progress: 20, text: '[NPU] Generative Horse Synthesis Core Loaded' },
+        { progress: 50, text: '[BUDGET] Distributing exactly 350 points across 5 stats (Speed/Accel/Stamina/Luck/Intellect)...' },
+        { progress: 80, text: '[PERSONA] Assigning unique AI strategy & office racing name...' },
+        { progress: 100, text: '[COMPLETE] High-performance balanced racehorse created' }
+      ],
+      onComplete: async () => {
+        const newHorse = await HorseGenerator.generateAIHorse();
+        this.stableHorses.unshift(newHorse);
+        this.renderStableGrid();
+        this.showToast(`✨ 새 명마 '${newHorse.name}' 이(가) 마구간에 입사했습니다!`);
+      }
+    });
+
+    AILoader.setButtonLoading(this.generateNewAIHorseBtn, false);
     sound.playClick();
   }
 
-  autoDraftHorsesForAllParticipants() {
+  async autoDraftHorsesForAllParticipants() {
     if (this.participants.length === 0) {
       alert('참가자를 먼저 추가해주세요!');
       return;
     }
 
-    // 셔플된 마구간 말들을 각 참가자에게 배정
-    const shuffled = [...this.stableHorses].sort(() => Math.random() - 0.5);
-    this.participants.forEach((p, idx) => {
-      const horse = shuffled[idx % shuffled.length];
-      p.horseName = horse.name;
-      p.strategy = horse.strategy;
-      p.stats = { ...horse.stats };
-      p.color = HORSE_COLORS[idx % HORSE_COLORS.length];
+    AILoader.setButtonLoading(this.aiAutoDraftHorsesBtn, true, 'AI 말 배정 중...');
+
+    await AILoader.run({
+      title: '온디바이스 AI 경주마 자동 매칭 & 밸런스 동기화 중...',
+      subtitle: `참가자 ${this.participants.length}인을 위한 최적 350pt 경주마 & 성향 매칭`,
+      duration: 850,
+      logs: [
+        { progress: 25, text: '[STABLE] Shuffling 350pt balanced stable horses...' },
+        { progress: 55, text: `[PAIRING] Matching ${this.participants.length} jockeys with complementary stats...` },
+        { progress: 85, text: '[SYNC] Calibrating racing colors, silks, and AI tendencies...' },
+        { progress: 100, text: '[COMPLETE] All participants matched with balanced racehorses' }
+      ],
+      onComplete: async () => {
+        // 셔플된 마구간 말들을 각 참가자에게 배정
+        const shuffled = [...this.stableHorses].sort(() => Math.random() - 0.5);
+        this.participants.forEach((p, idx) => {
+          const horse = shuffled[idx % shuffled.length];
+          p.horseName = horse.name;
+          p.strategy = horse.strategy;
+          p.stats = { ...horse.stats };
+          p.color = HORSE_COLORS[idx % HORSE_COLORS.length];
+        });
+
+        this.renderParticipantList();
+        this.saveParticipants();
+      }
     });
 
-    this.renderParticipantList();
-    this.saveParticipants();
+    AILoader.setButtonLoading(this.aiAutoDraftHorsesBtn, false);
     this.showToast('🎲 모든 참가자에게 밸런스 경주마가 자동 배정되었습니다!');
     sound.playClick();
   }
@@ -962,13 +1014,36 @@ class OfficeDerbyApp {
     this.receiptMenuItems.innerHTML = menuHtml;
     this.receiptTotalAmount.textContent = `${totalEstimatedPrice.toLocaleString()}원`;
 
-    // 온디바이스 AI 특종 기사 1면 비동기 생성
+    // 온디바이스 AI 특종 기사 1면 비동기 생성 및 타이핑 로더
     if (this.aiArticleContent) {
-      this.aiArticleContent.textContent = '🧠 온디바이스 AI가 경기 분석 기사를 작성 중입니다...';
-      aiEngine.generatePostRaceArticle(winner, penaltyHorses, totalCount, this.receiptRuleDesc.textContent, totalEstimatedPrice).then(article => {
-        if (this.aiArticleContent) {
-          this.aiArticleContent.textContent = article;
+      this.aiArticleContent.innerHTML = `
+        <div class="ai-reporter-loading">
+          <div class="ai-reporter-badge">
+            <span class="ai-live-dot"></span> 🧠 온디바이스 AI 특파원이 경기 데이터를 실시간 분석 중...
+          </div>
+          <div class="ai-skeleton-lines">
+            <div class="ai-skeleton-line" style="width: 95%;"></div>
+            <div class="ai-skeleton-line" style="width: 80%;"></div>
+            <div class="ai-skeleton-line" style="width: 88%;"></div>
+          </div>
+        </div>
+      `;
+
+      aiEngine.generatePostRaceArticle(winner, penaltyHorses, totalCount, this.receiptRuleDesc.textContent, totalEstimatedPrice).then(async (article) => {
+        if (!this.aiArticleContent) return;
+        this.aiArticleContent.innerHTML = `<span class="ai-article-text"></span><span class="ai-cursor">▌</span>`;
+        const textSpan = this.aiArticleContent.querySelector('.ai-article-text');
+        
+        for (let i = 0; i < article.length; i++) {
+          if (!this.aiArticleContent) break;
+          textSpan.textContent += article[i];
+          if (i % 2 === 0) {
+            await new Promise(r => setTimeout(r, 16));
+          }
         }
+        
+        const cursor = this.aiArticleContent.querySelector('.ai-cursor');
+        if (cursor) cursor.remove();
       });
     }
 

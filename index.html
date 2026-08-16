@@ -436,6 +436,54 @@
     </div>
   </div>
 
+  <!-- On-Device AI Neural Loading Modal / HUD -->
+  <div id="aiLoadingModal" class="modal-overlay ai-loading-overlay">
+    <div class="modal-container ai-loading-container">
+      <div class="ai-neural-visualizer">
+        <div class="ai-orbit-ring ring-outer"></div>
+        <div class="ai-orbit-ring ring-middle"></div>
+        <div class="ai-orbit-ring ring-inner"></div>
+        <div class="ai-neural-core">
+          <span class="ai-core-icon">🧠</span>
+          <div class="ai-core-pulse"></div>
+        </div>
+        <div class="ai-scan-radar"></div>
+      </div>
+
+      <div class="ai-loading-header">
+        <div class="ai-engine-badge">
+          <span class="pulse-indicator"></span> ON-DEVICE NEURAL AI
+        </div>
+        <h3 id="aiLoadingTitle" class="ai-loading-title">AI 별명 & 밸런스마 신경망 연산 중...</h3>
+        <p id="aiLoadingSubtitle" class="ai-loading-subtitle">브라우저 내장 NPU 및 온디바이스 생성 모델 가동 중</p>
+      </div>
+
+      <!-- Real-time Terminal Log Console -->
+      <div class="ai-terminal-console">
+        <div class="console-header">
+          <span class="console-dot dot-red"></span>
+          <span class="console-dot dot-yellow"></span>
+          <span class="console-dot dot-green"></span>
+          <span class="console-title">neural_engine_stream.log</span>
+        </div>
+        <div id="aiConsoleLogs" class="console-body">
+          <div class="console-line"><span class="log-prefix">&gt;</span> [NPU] Local Neural Core initialized (INT4 Quantized)</div>
+        </div>
+      </div>
+
+      <!-- Progress Bar & Percentage -->
+      <div class="ai-progress-wrap">
+        <div class="ai-progress-info">
+          <span id="aiProgressStatusText">가중치 텐서 연산 중...</span>
+          <span id="aiProgressPercent">0%</span>
+        </div>
+        <div class="ai-progress-bar-track">
+          <div id="aiProgressBarFill" class="ai-progress-bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Help / Guide Modal -->
   <div id="helpModal" class="modal-overlay">
     <div class="modal-container" style="max-width: 520px;">
