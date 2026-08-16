@@ -698,6 +698,80 @@ export class CanvasRenderer {
     }
   }
 
+  triggerItemHitEffect(victimHorse, itemType, attackerName, x, y) {
+    let label = '';
+    let bg = '#EF4444';
+    let border = '#F87171';
+    let particleColors = ['#EF4444', '#F59E0B', '#FFFFFF'];
+
+    const attacker = attackerName ? `[${attackerName}]의 ` : '';
+
+    if (itemType === 'banana') {
+      label = `🍌 ${attacker}바나나 밟음! (스핀 & 감속)`;
+      bg = 'rgba(217, 119, 6, 0.95)'; // Amber
+      border = '#FCD34D';
+      particleColors = ['#F59E0B', '#FEF08A', '#84CC16', '#FFFFFF'];
+    } else if (itemType === 'missile') {
+      label = `💥 ${attacker}미사일 직격타! (스핀 & 급정지)`;
+      bg = 'rgba(220, 38, 38, 0.95)'; // Crimson
+      border = '#FCA5A5';
+      particleColors = ['#EF4444', '#F97316', '#FDE047', '#FFFFFF'];
+    } else if (itemType === 'lightning') {
+      label = `⚡️ ${attacker}번개 감전! (페이스 다운)`;
+      bg = 'rgba(202, 138, 4, 0.95)'; // Electric Gold
+      border = '#FEF08A';
+      particleColors = ['#FACC15', '#FEF08A', '#38BDF8', '#FFFFFF'];
+    } else if (itemType === 'shieldBlock') {
+      label = `🛡️ ${attacker}공격 쉴드로 완벽 방어!`;
+      bg = 'rgba(13, 148, 136, 0.95)'; // Emerald/Cyan
+      border = '#67E8F9';
+      particleColors = ['#06B6D4', '#67E8F9', '#10B981', '#FFFFFF'];
+    } else {
+      label = `⚠️ ${attacker}피격 발생!`;
+    }
+
+    // 1. 피격 알림 플로팅 배지 (말 위쪽에 선명하게 팝업)
+    this.floatingPopups.push({
+      x,
+      y: y - 46,
+      vy: -25,
+      text: label,
+      bg: bg,
+      border: border,
+      alpha: 1.0,
+      life: 1.8, // 1.8초 동안 충분히 읽을 수 있도록 유지
+      maxLife: 1.8,
+      isHitAlert: true
+    });
+
+    // 2. 피격 충격파 링 파동
+    this.shockwaves.push({
+      x, y,
+      radius: 12,
+      maxRadius: 75,
+      color: border,
+      alpha: 1.0,
+      life: 0.5,
+      maxLife: 0.5,
+      lineWidth: 3.5
+    });
+
+    // 3. 충격 스파크 및 파티클 폭발 (20개)
+    for (let i = 0; i < 20; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 3.5 + Math.random() * 5.5;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1.2,
+        size: 3.5 + Math.random() * 3.5,
+        alpha: 1.0,
+        color: particleColors[Math.floor(Math.random() * particleColors.length)],
+        life: 0.55
+      });
+    }
+  }
+
   addItemPopParticle(x, y) {
     const colors = ['#F59E0B', '#FDE68A', '#38BDF8', '#FFFFFF'];
     for (let i = 0; i < 16; i++) {
@@ -787,7 +861,7 @@ export class CanvasRenderer {
         const pop = this.floatingPopups[i];
         pop.y += pop.vy * dt;
         pop.life -= dt;
-        pop.alpha = Math.max(0, Math.min(1.0, pop.life / (pop.maxLife * 0.35)));
+        pop.alpha = Math.max(0, Math.min(1.0, pop.life / (pop.maxLife * 0.25)));
         if (pop.life <= 0) {
           this.floatingPopups.splice(i, 1);
         }
@@ -835,22 +909,31 @@ export class CanvasRenderer {
       this.ctx.restore();
     });
 
-    // 3. 플로팅 텍스트 팝업
+    // 3. 플로팅 텍스트 팝업 (피격 알림 배지 및 아이템 사용 배지)
     if (this.floatingPopups) {
       this.floatingPopups.forEach(pop => {
         this.ctx.save();
         this.ctx.globalAlpha = pop.alpha;
-        this.ctx.font = 'bold 12px Pretendard, sans-serif';
-        const tw = this.ctx.measureText(pop.text).width + 16;
-        const th = 22;
+
+        const isHit = pop.isHitAlert;
+        this.ctx.font = isHit ? 'bold 12px Pretendard, sans-serif' : 'bold 11px Pretendard, sans-serif';
+        const tw = this.ctx.measureText(pop.text).width + (isHit ? 20 : 14);
+        const th = isHit ? 24 : 20;
 
         // 배지 배경 그림자 & 박스
-        this.ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-        this.ctx.shadowBlur = 8;
+        this.ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.shadowBlur = 10;
         this.ctx.fillStyle = pop.bg;
         this.ctx.beginPath();
         this.ctx.roundRect ? this.ctx.roundRect(pop.x - tw / 2, pop.y - th / 2, tw, th, 6) : this.ctx.fillRect(pop.x - tw / 2, pop.y - th / 2, tw, th);
         this.ctx.fill();
+
+        // 테두리 강조선
+        if (pop.border) {
+          this.ctx.strokeStyle = pop.border;
+          this.ctx.lineWidth = 1.5;
+          this.ctx.stroke();
+        }
 
         // 텍스트
         this.ctx.shadowBlur = 0;

@@ -814,10 +814,21 @@ class OfficeDerbyApp {
     const horseX = startX + (horse ? horse.progress : 0.5) * trackWidthSpan;
     const horseY = this.renderer.trackTop + (horse ? horse.lane : 0) * this.renderer.laneHeight + this.renderer.laneHeight * 0.5;
 
-    // 아이템 사용 시 화려한 쇼크웨이브 + 플로팅 텍스트 + 파티클 폭발
+    // 1. 아이템 사용 시 발동 효과 (쇼크웨이브 + 플로팅 텍스트 + 파티클 폭발)
     if (type.startsWith('itemUse')) {
       const item = info?.item || horse?.heldItem || { id: 'booster', name: '아이템', icon: '✨' };
       this.renderer.triggerItemUseEffect(horse, item, horseX, horseY);
+    }
+
+    // 2. 피격 시 누구의 어떤 아이템에 맞았는지 말 위에 선명한 피격 배지 & 스파크 발생
+    if (type === 'obstacleHit') {
+      this.renderer.triggerItemHitEffect(horse, 'banana', info?.attackerName, horseX, horseY);
+    } else if (type === 'missileHit') {
+      this.renderer.triggerItemHitEffect(horse, 'missile', info?.attackerName || info?.attacker?.name, horseX, horseY);
+    } else if (type === 'lightningHit') {
+      this.renderer.triggerItemHitEffect(horse, 'lightning', info?.attackerName || info?.attacker?.name, horseX, horseY);
+    } else if (type === 'shieldBlock') {
+      this.renderer.triggerItemHitEffect(horse, 'shieldBlock', info?.attackerName || info?.attacker?.name, horseX, horseY);
     }
 
     if (type === 'boost' || type === 'itemUseBooster' || type === 'itemUseMagnet') {

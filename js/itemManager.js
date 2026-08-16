@@ -101,7 +101,9 @@ export class ItemManager {
             type: 'banana',
             lane: target1.lane,
             distance: Math.min(totalDistance - 10, dropDist1),
-            targetName: target1.name
+            targetName: target1.name,
+            attackerName: horse.name,
+            attackerHorse: horse
           });
 
           if (leadingHorses.length >= 2 && Math.random() < 0.5) {
@@ -112,7 +114,9 @@ export class ItemManager {
               type: 'banana',
               lane: target2.lane,
               distance: Math.min(totalDistance - 10, dropDist2),
-              targetName: target2.name
+              targetName: target2.name,
+              attackerName: horse.name,
+              attackerHorse: horse
             });
           }
         }
@@ -134,9 +138,10 @@ export class ItemManager {
           if (target.id !== horse.id && target.rank < horse.rank && target.distance > horse.distance && !target.finished) {
             if (target.shieldActive) {
               target.shieldActive = false;
-              onEvent('shieldBlock', target, { attacker: horse });
+              onEvent('shieldBlock', target, { attacker: horse, attackerName: horse.name, itemType: 'lightning' });
             } else {
-              triggerEvent(target, 'slip', `⚡️ [${target.name}] 번개 감전!`, item.stunDuration, 0.4);
+              triggerEvent(target, 'slip', `⚡️ [${horse.name}]의 번개 감전!`, item.stunDuration, 0.4);
+              onEvent('lightningHit', target, { attacker: horse, attackerName: horse.name, itemType: 'lightning' });
             }
           }
         });
@@ -156,7 +161,7 @@ export class ItemManager {
             targetLane: target.lane,
             speed: horse.baseSpeed * 2.8
           });
-          onEvent('itemUseMissile', horse, { item, target });
+          onEvent('itemUseMissile', horse, { item, target, attackerName: horse.name });
         } else {
           triggerEvent(horse, 'boost', `🚀 [${horse.name}] 미사일 로켓 부스터!`, 1.5, 1.3);
         }
@@ -187,10 +192,11 @@ export class ItemManager {
           obstacles.splice(i, 1);
           if (horse.shieldActive) {
             horse.shieldActive = false;
-            onEvent('shieldBlock', horse, { obstacle: obs });
+            onEvent('shieldBlock', horse, { obstacle: obs, attacker: obs.attackerHorse, attackerName: obs.attackerName, itemType: 'banana' });
           } else {
-            triggerEvent(horse, 'slip', `🍌 [${horse.name}] 바나나 미끄러짐!`, 1.6, 0.35);
-            onEvent('obstacleHit', horse, { obstacle: obs });
+            const attacker = obs.attackerName ? `[${obs.attackerName}]의 ` : '';
+            triggerEvent(horse, 'slip', `🍌 ${attacker}바나나 미끄러짐!`, 1.8, 0.35);
+            onEvent('obstacleHit', horse, { obstacle: obs, attacker: obs.attackerHorse, attackerName: obs.attackerName, itemType: 'banana' });
           }
         }
       }
@@ -207,12 +213,14 @@ export class ItemManager {
       if (proj.x >= proj.targetHorse.distance - 15) {
         projectiles.splice(i, 1);
         const target = proj.targetHorse;
+        const attackerName = proj.fromHorse ? proj.fromHorse.name : '';
         if (target.shieldActive) {
           target.shieldActive = false;
-          onEvent('shieldBlock', target, { attacker: proj.fromHorse });
+          onEvent('shieldBlock', target, { attacker: proj.fromHorse, attackerName: attackerName, itemType: 'missile' });
         } else {
-          triggerEvent(target, 'slip', `💥 [${target.name}] 미사일 직격타!`, 1.8, 0.3);
-          onEvent('missileHit', target, { attacker: proj.fromHorse });
+          const attackerStr = attackerName ? `[${attackerName}]의 ` : '';
+          triggerEvent(target, 'slip', `💥 ${attackerStr}미사일 직격타!`, 2.0, 0.3);
+          onEvent('missileHit', target, { attacker: proj.fromHorse, attackerName: attackerName, itemType: 'missile' });
         }
       }
     }

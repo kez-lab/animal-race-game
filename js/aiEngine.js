@@ -122,23 +122,37 @@ export class OnDeviceAIEngine {
           `⚡️ [${horse.name}]님, 자석 인력으로 앞선 주자들의 슬립스트림을 흡수하며 도약!`
         ];
 
-      case 'shieldBlock':
+      case 'shieldBlock': {
+        const atk = info?.attackerName ? `[${info.attackerName}]님의 ` : '적의 ';
         return [
-          `🛡️ [AI 방어 성공] [${horse.name}] 선수, 쉴드로 완벽 방어! 데미지 0!`,
-          `✨ 챙-! [${horse.name}]님의 방어막이 적의 공격을 튕겨냈습니다!`
+          `🛡️ [AI 방어 성공] [${horse.name}] 선수, ${atk}공격을 쉴드로 완벽 방어! 데미지 0!`,
+          `✨ 챙-! [${horse.name}]님의 방어막이 ${atk}공격을 튕겨냈습니다!`
         ];
+      }
 
-      case 'obstacleHit':
+      case 'obstacleHit': {
+        const atk = info?.attackerName ? `[${info.attackerName}]님이 매설한 ` : '';
         return [
-          `🍌 [AI 위기] 앗! [${horse.name}]님, 트랙의 바나나를 밟고 360도 스핀!`,
-          `💫 비틀비틀! [${horse.name}] 선수가 함정에 걸려 속도가 급감합니다!`
+          `🍌 [AI 피격] 앗! [${horse.name}]님, ${atk}바나나를 밟고 360도 스핀!`,
+          `💫 비틀비틀! [${horse.name}] 선수가 ${atk}바나나 함정에 걸려 속도가 급감합니다!`
         ];
+      }
 
-      case 'missileHit':
+      case 'missileHit': {
+        const atk = info?.attackerName ? `[${info.attackerName}]님의 ` : '';
         return [
-          `💥 [AI 피격] 쾅! [${horse.name}]님, 미사일 직격타로 트랙에 급정지!`,
-          `🔥 연기 자욱! [${horse.name}] 선수가 미사일 폭발에 휘말렸습니다!`
+          `💥 [AI 직격타] 쾅! ${atk}스마트 미사일이 [${horse.name}]님을 직격해 급정지!`,
+          `🔥 연기 자욱! [${horse.name}] 선수가 ${atk}미사일 폭발에 휘말려 크게 감속합니다!`
         ];
+      }
+
+      case 'lightningHit': {
+        const atk = info?.attackerName ? `[${info.attackerName}]님의 ` : '';
+        return [
+          `⚡️ [AI 감전] 찌릿! [${horse.name}]님이 ${atk}번개 폭풍에 감전되어 페이스 다운!`,
+          `🌩️ [${horse.name}] 선수, ${atk}벼락에 피격되어 마력이 일시 마비되었습니다!`
+        ];
+      }
 
       default:
         return [`🏇 [${horse.name}] 선수가 치열한 레이스를 펼치고 있습니다.`];
