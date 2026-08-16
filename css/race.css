@@ -1,0 +1,314 @@
+/* =========================================================
+   race.css - 레이스 트랙, 실시간 중계석, 순위표 및 컨트롤바 스타일
+   ========================================================= */
+
+/* Race View Layout */
+.race-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Race Header Info Bar */
+.race-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.race-meta-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.race-badge {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-gold);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.race-timer {
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.race-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.control-btn:hover {
+  background: #475569;
+  border-color: var(--accent-gold);
+}
+
+.control-btn.active {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+/* Canvas Container */
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #1A202C;
+}
+
+#raceCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Mini Progress Bar Overlay */
+.race-progress-bar-container {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  position: relative;
+}
+
+.mini-track {
+  position: relative;
+  height: 24px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+}
+
+.mini-track-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.mini-horse-dot {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  color: #FFFFFF;
+  transform: translateX(-50%);
+  transition: left 0.1s linear;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+.mini-track-finish {
+  position: absolute;
+  right: 6px;
+  font-size: 14px;
+  z-index: 3;
+}
+
+/* Dual Grid: Commentator & Live Leaderboard */
+.race-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 860px) {
+  .race-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Live Commentator Box */
+.commentator-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.box-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.comment-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--bg-primary);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.4;
+  border-left: 3px solid var(--text-muted);
+}
+
+.comment-item.boost {
+  border-left-color: var(--accent-gold);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.comment-item.slip {
+  border-left-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.comment-item.danger {
+  border-left-color: var(--accent-rose);
+  background: rgba(244, 63, 94, 0.08);
+  font-weight: 600;
+}
+
+.comment-item.spurt {
+  border-left-color: #EA580C;
+  font-weight: 700;
+  color: #FED7AA;
+}
+
+.comment-item.finish {
+  border-left-color: var(--accent-emerald);
+  font-weight: 700;
+}
+
+.comment-item.penalty {
+  border-left-color: var(--accent-rose);
+  font-weight: 800;
+  color: #FECDD3;
+}
+
+.animate-in {
+  animation: slideInComment 0.25s ease-out;
+}
+
+@keyframes slideInComment {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Live Leaderboard */
+.leaderboard-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.live-rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.live-rank-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-primary);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.live-rank-item.is-lead {
+  border: 1px solid var(--accent-gold);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.live-rank-item.is-tail {
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.06);
+}
+
+.rank-badge-num {
+  font-weight: 800;
+  width: 20px;
+  font-size: 12px;
+}
+
+.rank-badge-num.gold { color: #FBBF24; }
+.rank-badge-num.silver { color: #E2E8F0; }
+.rank-badge-num.bronze { color: #F97316; }
+.rank-badge-num.tail { color: #F43F5E; }
+
+.rank-horse-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.rank-meter-val {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}

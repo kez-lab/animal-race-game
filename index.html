@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오피스 더비 (Office Derby) - 회사 커피내기 경마 게임 ☕️🏇</title>
+  <meta name="description" content="회사 동료들과 간단하고 짜릿하게 즐기는 커피내기 경마 게임! 실시간 중계, 박진감 넘치는 역전 드라마, 벌칙 영수증 티켓 생성">
+  
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏇</text></svg>">
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/race.css">
+  <link rel="stylesheet" href="css/modal.css">
+</head>
+<body>
+
+  <!-- Global Header -->
+  <header class="app-header">
+    <div class="logo-container">
+      <div class="logo-icon">🏇</div>
+      <div class="logo-title">
+        오피스 더비 <span class="logo-badge">Office Derby ☕️</span>
+      </div>
+    </div>
+    <div class="header-controls">
+      <button id="soundToggleBtn" class="icon-btn" title="사운드 켜기/끄기">🔊</button>
+      <button id="helpBtn" class="icon-btn" title="게임 설명">❓</button>
+    </div>
+  </header>
+
+  <!-- Main Content Wrapper -->
+  <main class="main-content">
+
+    <!-- 1. SETUP VIEW (참가자 및 벌칙 설정 화면) -->
+    <section id="setupView" class="view-section active">
+      <div class="setup-hero">
+        <h1>사무실 커피내기 경마장 ☕️🏇</h1>
+        <p>오늘 커피 쏠 사람은 누구? 팀원 이름을 넣고 승부의 결승선을 달려보세요!</p>
+      </div>
+
+      <div class="setup-grid">
+        <!-- Left: 참가자 목록 관리 -->
+        <div class="glass-card">
+          <div class="card-title">
+            <div class="title-left">
+              <span>🏇 참가자 (기수/말)</span>
+              <span id="participantCount" class="participant-count">0명</span>
+            </div>
+            <button id="clearAllBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;">전체 삭제</button>
+          </div>
+
+          <!-- Custom Preset Bar & Management -->
+          <div class="preset-section">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary);">📌 저장된 프리셋:</span>
+              <button id="saveCurrentPresetBtn" class="btn-secondary" style="padding: 3px 8px; font-size: 11px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4);">
+                💾 현재 명단 프리셋으로 저장
+              </button>
+            </div>
+            <div id="presetChipsContainer" class="preset-bar">
+              <!-- Dynamically populated preset chips -->
+            </div>
+          </div>
+
+          <!-- Single Input Form -->
+          <form id="addParticipantForm" class="input-group" onsubmit="return false;">
+            <input type="text" id="participantInput" class="styled-input" placeholder="이름 입력 (예: 김과장, 이대리)" maxlength="12" autocomplete="off">
+            <button type="submit" id="addParticipantBtn" class="btn-primary">추가</button>
+          </form>
+
+          <!-- Bulk Paste Accordion -->
+          <details class="bulk-paste-details">
+            <summary>📋 쉼표(,)나 줄바꿈으로 한 번에 붙여넣기</summary>
+            <textarea id="bulkInput" class="bulk-textarea" placeholder="김철수, 이영희, 박과장, 최팀장"></textarea>
+            <button type="button" id="bulkAddBtn" class="btn-secondary" style="margin-top: 8px; width: 100%;">대량 추가하기</button>
+          </details>
+
+          <!-- List of Horses -->
+          <div id="participantList" class="participant-list">
+            <!-- Dynamic Horse Item Elements will be rendered here -->
+          </div>
+        </div>
+
+        <!-- Right: 게임 룰 & 코스 설정 -->
+        <div class="glass-card">
+          <div class="card-title">
+            <div class="title-left">
+              <span>⚙️ 게임 모드 & 벌칙 설정</span>
+            </div>
+          </div>
+
+          <!-- Game Mode Selector (아이템전 vs 스피드전) -->
+          <div class="rule-group">
+            <label class="rule-label">🎮 레이스 경기 모드</label>
+            <div class="radio-cards">
+              <label class="radio-card active">
+                <input type="radio" name="gameMode" value="item" checked>
+                <div class="radio-title">🎁 신나는 아이템전</div>
+                <div class="radio-desc">부스터, 바나나, 쉴드, 번개, 미사일로 대역전극!</div>
+              </label>
+
+              <label class="radio-card">
+                <input type="radio" name="gameMode" value="speed">
+                <div class="radio-title">🏇 클래식 스피드전</div>
+                <div class="radio-desc">정통 스태미나 & 칼퇴 스퍼트 승부</div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Penalty Rule Selector -->
+          <div class="rule-group">
+            <label class="rule-label">☕️ 커피 벌칙 방식</label>
+            <div class="radio-cards">
+              <label class="radio-card active">
+                <input type="radio" name="penaltyRule" value="last1" checked>
+                <div class="radio-title">☕️ 꼴찌 1명 몰빵</div>
+                <div class="radio-desc">최하위 1명이 전원 커피 결제 (클래식)</div>
+              </label>
+
+              <label class="radio-card">
+                <input type="radio" name="penaltyRule" value="last2">
+                <div class="radio-title">👥 하위 2명 뿜빠이</div>
+                <div class="radio-desc">꼴찌와 뒤에서 2등이 절반씩 결제</div>
+              </label>
+
+              <label class="radio-card">
+                <input type="radio" name="penaltyRule" value="winnerSafe">
+                <div class="radio-title">👑 1등만 생존</div>
+                <div class="radio-desc">1등 제외 나머지 전원 균등 분담</div>
+              </label>
+
+              <label class="radio-card">
+                <input type="radio" name="penaltyRule" value="randomTarget">
+                <div class="radio-title">🎯 4등(또는 지정) 당첨</div>
+                <div class="radio-desc">예측불허! 특정 순위 지정 벌칙</div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Distance Selector -->
+          <div class="rule-group">
+            <label class="rule-label">🏁 트랙 코스 길이</label>
+            <div class="distance-select">
+              <button type="button" class="distance-btn" data-distance="1000">단거리 1000m<br><span style="font-size: 11px; font-weight: normal; opacity: 0.8;">약 15초 스피드</span></button>
+              <button type="button" class="distance-btn active" data-distance="1600">중거리 1600m<br><span style="font-size: 11px; font-weight: normal; opacity: 0.8;">약 22초 (추천)</span></button>
+              <button type="button" class="distance-btn" data-distance="2400">장거리 2400m<br><span style="font-size: 11px; font-weight: normal; opacity: 0.8;">약 32초 대역전극</span></button>
+            </div>
+          </div>
+
+          <!-- Extra Coffee Menu Lottery Option -->
+          <div class="rule-group" style="margin-top: 14px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+              <input type="checkbox" id="randomCoffeeMenuCheck" checked style="accent-color: var(--accent-gold); width: 16px; height: 16px;">
+              <span>🎲 벌칙 영수증에 <strong>커피 추천 메뉴</strong>도 함께 뽑기</span>
+            </label>
+          </div>
+
+          <!-- Big Start CTA -->
+          <div class="start-cta-container">
+            <button id="startRaceBtn" class="start-race-btn">
+              <span>🏇</span>
+              <span>지금 레이스 출발하기!</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. RACE VIEW (실시간 레이스 트랙 화면) -->
+    <section id="raceView" class="view-section">
+      <div class="race-layout">
+        <!-- Top Status Bar -->
+        <div class="race-header-bar">
+          <div class="race-meta-left">
+            <div class="race-badge">
+              <span>🔥</span>
+              <span id="raceDistanceBadge">중거리 1600m</span>
+            </div>
+            <div class="race-timer" id="raceTimerDisplay">⏱️ 00:00.0</div>
+          </div>
+
+          <div class="race-controls-right">
+            <button id="pauseRaceBtn" class="control-btn" title="일시정지/재개">⏸️ 일시정지</button>
+            <button id="speedRaceBtn" class="control-btn" title="배속 토글">⏩ 1.0x</button>
+            <button id="skipRaceBtn" class="control-btn" title="결과 즉시 보기">⏭️ 결과 스킵</button>
+          </div>
+        </div>
+
+        <!-- Mini Progress Map -->
+        <div class="race-progress-bar-container">
+          <div class="mini-track" id="miniTrack">
+            <div class="mini-track-marker" style="left: 25%;"></div>
+            <div class="mini-track-marker" style="left: 50%;"></div>
+            <div class="mini-track-marker" style="left: 75%;"></div>
+            <div class="mini-track-finish">🏁</div>
+            <!-- Mini Horse Dots will be rendered here dynamically -->
+          </div>
+        </div>
+
+        <!-- 2D Canvas Track -->
+        <div class="canvas-wrapper">
+          <canvas id="raceCanvas"></canvas>
+        </div>
+
+        <!-- Bottom Grid: Live Commentary & Leaderboard -->
+        <div class="race-bottom-grid">
+          <!-- Live Commentator Box -->
+          <div class="commentator-box">
+            <div class="box-title">
+              <span>🎙️ 실시간 중계석</span>
+            </div>
+            <div id="commentList" class="comment-list">
+              <div class="comment-item init">🎙️ 출발 준비 중... 중계석 대기 완료!</div>
+            </div>
+          </div>
+
+          <!-- Live Rank Scoreboard -->
+          <div class="leaderboard-box">
+            <div class="box-title">
+              <span>📊 실시간 순위</span>
+            </div>
+            <div id="liveRankList" class="live-rank-list">
+              <!-- Live rank items -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 3. RESULT & RECEIPT MODAL (결과 및 영수증 벌칙 티켓 모달) -->
+  <div id="resultModal" class="modal-overlay">
+    <div class="modal-container">
+      
+      <!-- Result Header & Podium -->
+      <div class="result-header">
+        <div class="result-title">🏆 영광의 시상식 & 벌칙 발표!</div>
+        <div class="result-subtitle" id="resultSubtitle">치열했던 레이스가 모두 끝났습니다.</div>
+      </div>
+
+      <!-- Podium Top 3 -->
+      <div id="podiumContainer" class="podium-container">
+        <!-- 2nd Place -->
+        <div class="podium-step rank-2">
+          <div class="podium-avatar" id="podiumAvatar2">🥈</div>
+          <div class="podium-name" id="podiumName2">2위 이름</div>
+          <div class="podium-block">2</div>
+        </div>
+        <!-- 1st Place -->
+        <div class="podium-step rank-1">
+          <div class="podium-avatar" id="podiumAvatar1">👑</div>
+          <div class="podium-name" id="podiumName1">1위 이름</div>
+          <div class="podium-block">1</div>
+        </div>
+        <!-- 3rd Place -->
+        <div class="podium-step rank-3">
+          <div class="podium-avatar" id="podiumAvatar3">🥉</div>
+          <div class="podium-name" id="podiumName3">3위 이름</div>
+          <div class="podium-block">3</div>
+        </div>
+      </div>
+
+      <!-- Realistic Thermal Receipt Card (영수증 벌칙 티켓) -->
+      <div id="receiptCard" class="receipt-card">
+        <div class="receipt-header">
+          <div class="receipt-store-title">☕️ OFFICE DERBY CAFE</div>
+          <div class="receipt-sub">오피스 더비 커피내기 공식 결제 영수증</div>
+          <div class="receipt-sub" id="receiptDate">2026.08.16 23:10 | 주문번호: #0777</div>
+        </div>
+
+        <div class="receipt-body">
+          <div class="receipt-row bold highlight">
+            <span>🎯 당첨 결제자</span>
+            <span id="receiptPayerName">김대리님 (확정)</span>
+          </div>
+          <div class="receipt-row">
+            <span>적용 룰</span>
+            <span id="receiptRuleDesc">꼴찌 1명 몰빵 결제</span>
+          </div>
+
+          <div class="receipt-divider"></div>
+
+          <div class="receipt-row bold">
+            <span>주문 내역</span>
+            <span>수량 / 금액</span>
+          </div>
+          <div id="receiptMenuItems">
+            <div class="receipt-row">
+              <span>☕️ 아이스 아메리카노 외</span>
+              <span id="receiptSummaryQty">6잔</span>
+            </div>
+          </div>
+
+          <div class="receipt-total">
+            <span>총 예상 결제금액</span>
+            <span id="receiptTotalAmount">33,000원</span>
+          </div>
+        </div>
+
+        <!-- Rubber Stamp -->
+        <div class="receipt-stamp">결 제 확 정</div>
+
+        <div class="receipt-footer-notes" id="receiptFooterNotes">
+          * 법인카드 결제 금지 (개인카드 결제 권장)<br>
+          * 샷 추가 및 디저트는 당첨자의 자비에 맡깁니다.
+        </div>
+
+        <!-- Barcode visual -->
+        <div class="barcode-visual">
+          <div class="bar-line" style="width: 2px;"></div>
+          <div class="bar-line" style="width: 4px; margin-left: 3px;"></div>
+          <div class="bar-line" style="width: 1px; margin-left: 2px;"></div>
+          <div class="bar-line" style="width: 3px; margin-left: 4px;"></div>
+          <div class="bar-line" style="width: 2px; margin-left: 2px;"></div>
+          <div class="bar-line" style="width: 5px; margin-left: 3px;"></div>
+          <div class="bar-line" style="width: 1px; margin-left: 2px;"></div>
+          <div class="bar-line" style="width: 3px; margin-left: 3px;"></div>
+          <div class="bar-line" style="width: 2px; margin-left: 4px;"></div>
+          <div class="bar-line" style="width: 4px; margin-left: 2px;"></div>
+        </div>
+      </div>
+
+      <!-- Complete Ranking Table -->
+      <div class="ranking-details-card">
+        <div class="ranking-table-title">
+          <span>🏁 최종 완주 기록표</span>
+        </div>
+        <div id="modalRankList" class="modal-rank-list">
+          <!-- Full ranked rows -->
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="modal-actions">
+        <button id="copyResultBtn" class="action-btn-copy">
+          <span>📋</span>
+          <span>슬랙 / 카톡 결과 복사</span>
+        </button>
+        <button id="rematchBtn" class="action-btn-rematch">
+          <span>🔄</span>
+          <span>멤버 그대로 다시 하기</span>
+        </button>
+        <button id="backToSetupBtn" class="action-btn-setup">
+          ⚙️ 참가자 & 룰 설정으로 돌아가기
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Help / Guide Modal -->
+  <div id="helpModal" class="modal-overlay">
+    <div class="modal-container" style="max-width: 520px;">
+      <div class="result-header">
+        <div class="result-title">📖 오피스 더비 가이드</div>
+        <div class="result-subtitle">회사 사람들과 재미있게 커피 내기하는 방법</div>
+      </div>
+      <div style="font-size: 14px; line-height: 1.7; color: var(--text-primary); display: flex; flex-direction: column; gap: 12px;">
+        <p>1. <strong>팀원 등록:</strong> 쉼표(,)나 줄바꿈으로 팀원 이름을 복사해 붙여넣으면 1초 만에 등록됩니다.</p>
+        <p>2. <strong>벌칙 설정:</strong> 꼴찌 1명 몰빵, 하위 2명 뿜빠이, 1등 제외 전원 쏘기 등 원하는 룰을 선택하세요.</p>
+        <p>3. <strong>박진감 넘치는 경기:</strong> 경기 중 카페인 부스터, 칼퇴 스퍼트 등 돌발 이벤트가 발생하여 끝까지 결과를 알 수 없습니다.</p>
+        <p>4. <strong>결과 공유:</strong> 경기가 끝나면 <strong>[슬랙/카톡 결과 복사]</strong> 버튼을 눌러 팀 메신저에 바로 공지하세요!</p>
+      </div>
+      <button id="closeHelpBtn" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">확인 완료</button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast-msg">
+    <span>✅</span>
+    <span id="toastText">클립보드에 복사되었습니다!</span>
+  </div>
+
+  <!-- Main JavaScript App Entry -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
