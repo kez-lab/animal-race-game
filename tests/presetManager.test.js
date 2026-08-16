@@ -16,11 +16,11 @@ describe('PresetManager', () => {
     };
   };
 
-  it('loadPresets: 스토리지에 데이터가 없으면 기본 프리셋을 반환해야 한다', () => {
+  it('loadPresets: 스토리지에 데이터가 없으면 빈 프리셋 배열([])을 반환해야 한다', () => {
     const storage = createMockStorage();
     const presets = PresetManager.loadPresets(storage);
     assert.ok(Array.isArray(presets));
-    assert.ok(presets.length >= 3);
+    assert.equal(presets.length, 0);
   });
 
   it('addPreset & savePresets: 새 프리셋을 추가하고 스토리지에 정상 저장할 수 있어야 한다', () => {

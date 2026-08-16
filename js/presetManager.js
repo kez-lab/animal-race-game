@@ -14,19 +14,19 @@ export class PresetManager {
    * 스토리지에서 프리셋 목록 로드 (실패 시 기본값 반환)
    */
   static loadPresets(storage = globalThis.localStorage) {
-    if (!storage) return [...DEFAULT_PRESETS];
+    if (!storage) return [];
     try {
       const data = storage.getItem(STORAGE_KEYS.PRESETS);
       if (data) {
         const parsed = JSON.parse(data);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
     } catch (e) {
       console.warn('Failed to load presets from storage', e);
     }
-    return [...DEFAULT_PRESETS];
+    return [];
   }
 
   /**

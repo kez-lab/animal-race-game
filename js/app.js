@@ -123,13 +123,7 @@ class OfficeDerbyApp {
       }
     }
 
-    if (this.participants.length === 0) {
-      if (this.customPresets.length > 0) {
-        this.applyPreset(this.customPresets[0]);
-      }
-    } else {
-      this.renderParticipantList();
-    }
+    this.renderParticipantList();
 
     // 엔진 & 렌더러 생성
     this.commentator = new Commentator(this.commentList);
@@ -491,14 +485,15 @@ class OfficeDerbyApp {
   }
 
   renderParticipantList() {
-    this.participantCountEl.textContent = `${this.participants.length}명`;
-
     if (this.participants.length === 0) {
       this.participantListEl.innerHTML = `
-        <div style="text-align: center; padding: 28px 10px; color: var(--text-muted); font-size: 13px;">
-          등록된 참가자가 없습니다.<br>팀원 이름을 입력하거나 상단 프리셋을 선택해보세요!
+        <div style="text-align: center; padding: 36px 14px; color: var(--text-muted); font-size: 13px;">
+          <div style="font-size: 28px; margin-bottom: 8px; opacity: 0.8;">🏇</div>
+          <div style="font-size: 14px; font-weight: 700; color: #CBD5E1; margin-bottom: 4px;">등록된 참가자가 없습니다</div>
+          <div style="font-size: 12px; color: #94A3B8;">상단 입력창에 팀원 이름을 입력하거나 일괄 등록해주세요.</div>
         </div>
       `;
+      this.updateCostEstimate();
       return;
     }
 

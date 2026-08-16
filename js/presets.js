@@ -116,23 +116,7 @@ export const AI_STRATEGIES = [
   }
 ];
 
-export const DEFAULT_PRESETS = [
-  {
-    id: 'preset_dev',
-    name: '💻 개발팀 (4인)',
-    members: ['김개발', '이코딩', '박프론트', '최백엔드']
-  },
-  {
-    id: 'preset_lunch',
-    name: '🍱 점심팟 (6인)',
-    members: ['김과장', '이대리', '박주임', '최사원', '정팀장', '강인턴']
-  },
-  {
-    id: 'preset_tf',
-    name: '🚀 TF 프로젝트팀 (8인)',
-    members: ['민수', '지현', '성민', '수진', '도윤', '서연', '준서', '하은']
-  }
-];
+export const DEFAULT_PRESETS = [];
 
 export const COFFEE_MENUS = [
   { name: '☕️ 갓 내린 아이스 아메리카노', price: '4,500원', note: '가장 무난하고 빠른 선택!' },
