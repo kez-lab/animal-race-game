@@ -314,6 +314,7 @@ class OfficeDerbyApp {
         const parentRuleGroup = e.target.closest('.rule-group');
         parentRuleGroup.querySelectorAll('.radio-card').forEach(card => card.classList.remove('active'));
         e.target.closest('.radio-card').classList.add('active');
+        this.updateCostEstimate();
         sound.playClick();
       });
     });
@@ -331,6 +332,7 @@ class OfficeDerbyApp {
     // 8. 커피 메뉴 체크박스
     this.randomCoffeeMenuCheck.addEventListener('change', (e) => {
       this.includeCoffeeMenu = e.target.checked;
+      this.updateCostEstimate();
     });
 
     // 9. 레이스 시작 버튼
@@ -552,6 +554,39 @@ class OfficeDerbyApp {
         this.removeParticipant(index);
       });
     });
+
+    this.updateCostEstimate();
+  }
+
+  updateCostEstimate() {
+    const costTextEl = document.getElementById('costCalculationText');
+    if (!costTextEl) return;
+
+    const count = this.participants.length;
+    const includeMenu = this.randomCoffeeMenuCheck ? this.randomCoffeeMenuCheck.checked : true;
+    const estimated = calculateEstimatedPrice(count, includeMenu);
+    const estimatedTotal = estimated.totalAmount || 0;
+    const unitPrice = estimated.unitPrice || 4500;
+
+    if (count === 0) {
+      costTextEl.textContent = '참가자를 2명 이상 등록하면 예상 결제 금액이 계산됩니다.';
+      return;
+    }
+
+    let perPersonDesc = '';
+    if (this.selectedRule === 'last1') {
+      perPersonDesc = `(꼴찌 1인 전액 ~${estimatedTotal.toLocaleString()}원)`;
+    } else if (this.selectedRule === 'last2') {
+      const half = Math.round(estimatedTotal / 2);
+      perPersonDesc = `(하위 2인 각 ~${half.toLocaleString()}원씩)`;
+    } else if (this.selectedRule === 'winnerSafe') {
+      const share = count > 1 ? Math.round(estimatedTotal / (count - 1)) : estimatedTotal;
+      perPersonDesc = `(1등 제외 각 ~${share.toLocaleString()}원씩)`;
+    } else {
+      perPersonDesc = `(4등 당첨자 ~${estimatedTotal.toLocaleString()}원)`;
+    }
+
+    costTextEl.textContent = `참가 ${count}명 × 약 ${unitPrice.toLocaleString()}원 = 총 예상 결제액 ~${estimatedTotal.toLocaleString()}원 ${perPersonDesc}`;
   }
 
   openHorseDraftModal(participantIndex) {

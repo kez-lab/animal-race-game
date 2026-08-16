@@ -36,35 +36,45 @@
     <!-- 1. SETUP VIEW (참가자 및 벌칙 설정 화면) -->
     <section id="setupView" class="view-section active">
       <div class="setup-hero">
-        <h1>사무실 커피내기 경마장 ☕️🏇</h1>
-        <p>오늘 커피 쏠 사람은 누구? 팀원 이름을 넣고 승부의 결승선을 달려보세요!</p>
+        <div class="hero-badge">☕️ 회사 커피내기 & 간식 결제 사내 레이싱</div>
+        <h1>오피스 더비 (Office Derby)</h1>
+        <p class="hero-desc">
+          오늘 커피 쏠 사람은 누구? 팀원 이름을 등록하고 승부의 결승선을 질주하세요!
+        </p>
+        <div class="hero-feature-tags">
+          <span class="feat-tag">🎁 6종 아이템전</span>
+          <span class="feat-tag">🧠 온디바이스 AI 전략 기수</span>
+          <span class="feat-tag">⚖️ 350pt 밸런스 마구간</span>
+        </div>
       </div>
 
       <div class="setup-grid">
         <!-- Left: 참가자 목록 관리 -->
-        <div class="glass-card">
+        <div class="glass-card participant-card">
           <div class="card-title">
             <div class="title-left">
-              <span>🏇 참가자 (기수/말)</span>
+              <span>🏇 참가 기수 & 경주마</span>
               <span id="participantCount" class="participant-count">0명</span>
             </div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-              <button id="aiAutoDraftHorsesBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; color: var(--accent-cyan); border-color: rgba(6, 182, 212, 0.4);" title="모든 참가자에게 밸런스 경주마를 자동 배정합니다">
+            <div class="card-quick-actions">
+              <button id="aiAutoDraftHorsesBtn" class="btn-action cyan" title="모든 참가자에게 밸런스 경주마를 자동 배정합니다">
                 🎲 AI 말 자동 배정
               </button>
-              <button id="aiRerollNicknamesBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4);" title="온디바이스 AI로 모든 참가자의 별명을 창의적으로 재작성">
+              <button id="aiRerollNicknamesBtn" class="btn-action gold" title="온디바이스 AI로 모든 참가자의 별명을 창의적으로 재작성">
                 🪄 AI 별명 일괄 생성
               </button>
-              <button id="clearAllBtn" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;">전체 삭제</button>
+              <button id="clearAllBtn" class="btn-action danger" title="참가자 명단 전체 삭제">
+                🗑️ 비우기
+              </button>
             </div>
           </div>
 
           <!-- Custom Preset Bar & Management -->
           <div class="preset-section">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary);">📌 저장된 프리셋:</span>
-              <button id="saveCurrentPresetBtn" class="btn-secondary" style="padding: 3px 8px; font-size: 11px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4);">
-                💾 현재 명단 프리셋으로 저장
+            <div class="preset-header">
+              <span class="preset-label">📌 빠른 프리셋 불러오기:</span>
+              <button id="saveCurrentPresetBtn" class="btn-preset-save">
+                💾 현재 명단 저장
               </button>
             </div>
             <div id="presetChipsContainer" class="preset-bar">
@@ -74,15 +84,20 @@
 
           <!-- Single Input Form -->
           <form id="addParticipantForm" class="input-group" onsubmit="return false;">
-            <input type="text" id="participantInput" class="styled-input" placeholder="이름 입력 (예: 김과장, 이대리)" maxlength="12" autocomplete="off">
-            <button type="submit" id="addParticipantBtn" class="btn-primary">추가</button>
+            <div class="input-wrapper">
+              <span class="input-icon">👤</span>
+              <input type="text" id="participantInput" class="styled-input" placeholder="참가자 이름 입력 (예: 김과장, 이대리)" maxlength="12" autocomplete="off">
+            </div>
+            <button type="submit" id="addParticipantBtn" class="btn-primary">
+              <span>+ 추가</span>
+            </button>
           </form>
 
           <!-- Bulk Paste Accordion -->
           <details class="bulk-paste-details">
-            <summary>📋 쉼표(,)나 줄바꿈으로 한 번에 붙여넣기</summary>
-            <textarea id="bulkInput" class="bulk-textarea" placeholder="김철수, 이영희, 박과장, 최팀장"></textarea>
-            <button type="button" id="bulkAddBtn" class="btn-secondary" style="margin-top: 8px; width: 100%;">대량 추가하기</button>
+            <summary>📋 쉼표(,)나 줄바꿈으로 한 번에 대량 등록하기</summary>
+            <textarea id="bulkInput" class="bulk-textarea" placeholder="김철수, 이영희, 박과장, 최팀장, 정대리, 강인턴"></textarea>
+            <button type="button" id="bulkAddBtn" class="btn-bulk-submit">⚡️ 명단 일괄 추가하기</button>
           </details>
 
           <!-- List of Horses -->
@@ -92,45 +107,47 @@
         </div>
 
         <!-- Right: 게임 룰 & 코스 설정 -->
-        <div class="glass-card">
+        <div class="glass-card rules-card">
           <div class="card-title">
             <div class="title-left">
-              <span>⚙️ 게임 모드 & 벌칙 설정</span>
+              <span>⚙️ 레이스 모드 & 결제 룰 설정</span>
             </div>
           </div>
 
           <!-- Game Mode Selector (아이템전 vs 스피드전) -->
           <div class="rule-group">
             <label class="rule-label">🎮 레이스 경기 모드</label>
-            <div class="radio-cards">
+            <div class="radio-cards mode-cards">
               <label class="radio-card active">
                 <input type="radio" name="gameMode" value="item" checked>
+                <div class="radio-badge item-badge">HOT</div>
                 <div class="radio-title">🎁 신나는 아이템전</div>
-                <div class="radio-desc">부스터, 바나나, 쉴드, 번개, 미사일로 대역전극!</div>
+                <div class="radio-desc">부스터, 바나나, 쉴드, 번개, 미사일로 짜릿한 역전극!</div>
               </label>
 
               <label class="radio-card">
                 <input type="radio" name="gameMode" value="speed">
-                <div class="radio-title">🏇 클래식 스피드전</div>
-                <div class="radio-desc">정통 스태미나 & 칼퇴 스퍼트 승부</div>
+                <div class="radio-badge speed-badge">CLASSIC</div>
+                <div class="radio-title">🏇 정통 스피드전</div>
+                <div class="radio-desc">순수 스태미나 페이스 조절 & 칼퇴 스퍼트 승부</div>
               </label>
             </div>
           </div>
 
           <!-- Penalty Rule Selector -->
           <div class="rule-group">
-            <label class="rule-label">☕️ 커피 벌칙 방식</label>
-            <div class="radio-cards">
+            <label class="rule-label">☕️ 커피 벌칙 결제 방식</label>
+            <div class="radio-cards penalty-cards">
               <label class="radio-card active">
                 <input type="radio" name="penaltyRule" value="last1" checked>
                 <div class="radio-title">☕️ 꼴찌 1명 몰빵</div>
-                <div class="radio-desc">최하위 1명이 전원 커피 결제 (클래식)</div>
+                <div class="radio-desc">최하위 1명이 전원 음료 전액 결제</div>
               </label>
 
               <label class="radio-card">
                 <input type="radio" name="penaltyRule" value="last2">
                 <div class="radio-title">👥 하위 2명 뿜빠이</div>
-                <div class="radio-desc">꼴찌와 뒤에서 2등이 절반씩 결제</div>
+                <div class="radio-desc">꼴찌와 뒤에서 2등이 절반씩 균등 분담</div>
               </label>
 
               <label class="radio-card">
@@ -141,8 +158,8 @@
 
               <label class="radio-card">
                 <input type="radio" name="penaltyRule" value="randomTarget">
-                <div class="radio-title">🎯 4등(또는 지정) 당첨</div>
-                <div class="radio-desc">예측불허! 특정 순위 지정 벌칙</div>
+                <div class="radio-title">🎯 4등(지정) 깜짝 벌칙</div>
+                <div class="radio-desc">예측불허! 4등 결승 통과자가 결제</div>
               </label>
             </div>
           </div>
@@ -151,25 +168,45 @@
           <div class="rule-group">
             <label class="rule-label">🏁 트랙 코스 길이</label>
             <div class="distance-select">
-              <button type="button" class="distance-btn" data-distance="1000">단거리 1000m<br><span style="font-size: 11px; font-weight: normal; opacity: 0.8;">약 15초 스피드</span></button>
-              <button type="button" class="distance-btn active" data-distance="1600">중거리 1600m<br><span style="font-size: 11px; font-weight: normal; opacity: 0.8;">약 22초 (추천)</span></button>
-              <button type="button" class="distance-btn" data-distance="2400">장거리 2400m<br><span style="font-size: 11px; font-weight: normal; opacity: 0.8;">약 32초 대역전극</span></button>
+              <button type="button" class="distance-btn" data-distance="1000">
+                <span class="dist-name">단거리 1000m</span>
+                <span class="dist-desc">⚡️ 약 15초 스피드</span>
+              </button>
+              <button type="button" class="distance-btn active" data-distance="1600">
+                <span class="dist-name">중거리 1600m</span>
+                <span class="dist-desc">🏆 약 22초 (인기)</span>
+              </button>
+              <button type="button" class="distance-btn" data-distance="2400">
+                <span class="dist-name">장거리 2400m</span>
+                <span class="dist-desc">👑 약 32초 대역전</span>
+              </button>
             </div>
           </div>
 
           <!-- Extra Coffee Menu Lottery Option -->
-          <div class="rule-group" style="margin-top: 14px;">
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
-              <input type="checkbox" id="randomCoffeeMenuCheck" checked style="accent-color: var(--accent-gold); width: 16px; height: 16px;">
-              <span>🎲 벌칙 영수증에 <strong>커피 추천 메뉴</strong>도 함께 뽑기</span>
+          <div class="lottery-option-row">
+            <label class="toggle-container">
+              <input type="checkbox" id="randomCoffeeMenuCheck" checked>
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">🎲 영수증에 <strong>커피/음료 추천 메뉴</strong>도 함께 뽑기</span>
             </label>
+          </div>
+
+          <!-- Live Cost Estimate Summary Box -->
+          <div id="costEstimateBox" class="cost-estimate-box">
+            <div class="cost-icon">🧾</div>
+            <div class="cost-details">
+              <div class="cost-title">예상 커피 결제 견적</div>
+              <div id="costCalculationText" class="cost-calc">참가자 0명 × 약 4,500원 = 예상 결제액 ~0원</div>
+            </div>
           </div>
 
           <!-- Big Start CTA -->
           <div class="start-cta-container">
             <button id="startRaceBtn" class="start-race-btn">
-              <span>🏇</span>
-              <span>지금 레이스 출발하기!</span>
+              <span class="btn-icon">🏇</span>
+              <span class="btn-text">지금 레이스 출발하기!</span>
+              <span class="btn-arrow">➔</span>
             </button>
           </div>
         </div>
