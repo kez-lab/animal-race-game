@@ -312,3 +312,85 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* =========================================================
+   Race Screen Mobile Optimization (< 768px)
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .race-header-bar {
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .race-meta-left {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .race-badge {
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+
+  .race-timer {
+    font-size: 14px;
+    padding: 3px 8px;
+  }
+
+  .race-controls-right {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+
+  .control-btn {
+    padding: 8px 4px;
+    font-size: 11.5px;
+    justify-content: center;
+  }
+
+  .race-progress-bar-container {
+    padding: 8px 12px;
+  }
+
+  .mini-track {
+    height: 20px;
+  }
+
+  .mini-horse-dot {
+    width: 15px;
+    height: 15px;
+    font-size: 8px;
+  }
+
+  .race-bottom-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .commentator-box, .leaderboard-box {
+    padding: 12px;
+    border-radius: var(--radius-sm);
+  }
+
+  .comment-list {
+    min-height: 100px;
+    max-height: 120px;
+  }
+
+  .comment-item {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .live-rank-item {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}

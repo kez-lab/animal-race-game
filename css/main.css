@@ -625,3 +625,149 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* =========================================================
+   Mobile Optimization Media Queries (< 768px & < 480px)
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 10px 14px;
+  }
+
+  .logo-container {
+    gap: 8px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    border-radius: var(--radius-sm);
+  }
+
+  .logo-title {
+    font-size: 16px;
+  }
+
+  .logo-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .header-controls {
+    gap: 8px;
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .main-content {
+    padding: 14px 12px calc(24px + env(safe-area-inset-bottom, 16px));
+  }
+
+  .setup-hero {
+    margin-bottom: 18px;
+  }
+
+  .setup-hero h1 {
+    font-size: 22px;
+  }
+
+  .setup-hero p {
+    font-size: 13px;
+  }
+
+  .setup-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .glass-card {
+    padding: 16px 14px;
+    border-radius: var(--radius-md);
+  }
+
+  .card-title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .card-title .title-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .preset-bar {
+    padding-bottom: 4px;
+  }
+
+  .styled-input {
+    font-size: 16px; /* iOS 자동 줌 방지 */
+    padding: 10px 12px;
+  }
+
+  .btn-primary {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .participant-item {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+  }
+
+  .horse-name-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .horse-draft-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .radio-cards {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .distance-select {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .distance-btn {
+    padding: 10px 4px;
+    font-size: 12px;
+  }
+
+  .start-race-btn {
+    padding: 15px;
+    font-size: 16px;
+    min-height: 52px;
+    border-radius: var(--radius-md);
+  }
+}
+
+@media (max-width: 420px) {
+  .logo-badge {
+    display: none; /* 초소형 화면에서 배지 숨김 */
+  }
+
+  .card-title div[style*="flex"] {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .card-title div[style*="flex"] button {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+  }
+}

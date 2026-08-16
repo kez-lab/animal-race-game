@@ -588,3 +588,96 @@
   color: #0F172A;
   border-color: var(--accent-cyan);
 }
+
+/* =========================================================
+   Modal Mobile Optimization (< 768px)
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal-container {
+    width: 95vw;
+    max-height: 90vh;
+    padding: 20px 14px;
+    border-radius: var(--radius-md);
+  }
+
+  .result-title {
+    font-size: 20px;
+  }
+
+  .result-subtitle {
+    font-size: 12px;
+  }
+
+  .podium-container {
+    height: 135px;
+    margin: 10px 0 16px;
+    gap: 8px;
+  }
+
+  .podium-step {
+    width: 76px;
+  }
+
+  .podium-step.rank-1 { height: 80px; }
+  .podium-step.rank-2 { height: 60px; }
+  .podium-step.rank-3 { height: 48px; }
+
+  .podium-name {
+    font-size: 12px;
+    max-width: 72px;
+  }
+
+  .receipt-ticket {
+    padding: 16px 12px 24px;
+    margin-bottom: 14px;
+  }
+
+  .receipt-header .receipt-title {
+    font-size: 15px;
+  }
+
+  .receipt-stamp {
+    right: 8px;
+    top: 50px;
+    padding: 3px 10px;
+    font-size: 15px;
+    transform: rotate(-14deg);
+  }
+
+  .modal-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .action-btn-copy, .action-btn-rematch, .action-btn-setup {
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  .stable-horse-grid {
+    grid-template-columns: 1fr;
+    max-height: 380px;
+    gap: 10px;
+  }
+
+  .stable-horse-card {
+    padding: 12px;
+  }
+
+  .stat-row {
+    font-size: 10.5px;
+  }
+
+  .toast-msg {
+    width: 90vw;
+    font-size: 13px;
+    padding: 10px 16px;
+    justify-content: center;
+    bottom: 16px;
+  }
+}

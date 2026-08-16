@@ -689,6 +689,7 @@ class OfficeDerbyApp {
       this.setupView.classList.remove('active');
       this.raceView.classList.add('active');
     }
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
   startRace() {
