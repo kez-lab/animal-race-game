@@ -785,6 +785,7 @@ class OfficeDerbyApp {
       const isTail = h.rank === horses.length;
       const distPercent = Math.round(h.progress * 100);
       const aiIcon = h.strategy ? `<span style="font-size: 11px;" title="${h.strategy.name} (${h.strategy.tag})">${h.strategy.icon}</span>` : '';
+      const heldItemBadge = h.heldItem ? `<span class="held-item-badge" title="보유 중: ${h.heldItem.name}">${h.heldItem.icon}</span>` : '';
 
       return `
         <div class="live-rank-item ${isLead ? 'is-lead' : ''} ${isTail ? 'is-tail' : ''}">
@@ -793,6 +794,7 @@ class OfficeDerbyApp {
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${h.color.body};"></span>
             <span>${h.name}</span>
             ${aiIcon}
+            ${heldItemBadge}
             ${h.shieldActive ? '<span style="font-size: 11px;">🛡️</span>' : ''}
           </div>
           <div class="rank-meter-val">
@@ -806,17 +808,24 @@ class OfficeDerbyApp {
   onEngineEvent(type, horse, info) {
     this.commentator.onEvent(type, horse, info);
 
+    const startX = 140;
+    const finishX = this.renderer.trackPixelLength - 220;
+    const trackWidthSpan = finishX - startX;
+    const horseX = startX + (horse ? horse.progress : 0.5) * trackWidthSpan;
+    const horseY = this.renderer.trackTop + (horse ? horse.lane : 0) * this.renderer.laneHeight + this.renderer.laneHeight * 0.5;
+
+    // 아이템 사용 시 화려한 쇼크웨이브 + 플로팅 텍스트 + 파티클 폭발
+    if (type.startsWith('itemUse')) {
+      const item = info?.item || horse?.heldItem || { id: 'booster', name: '아이템', icon: '✨' };
+      this.renderer.triggerItemUseEffect(horse, item, horseX, horseY);
+    }
+
     if (type === 'boost' || type === 'itemUseBooster' || type === 'itemUseMagnet') {
       sound.playBoost();
     } else if (type === 'slip' || type === 'obstacleHit') {
       sound.playSlip();
     } else if (type === 'itemPickup') {
       sound.playItemPickup();
-      const startX = 140;
-      const finishX = this.renderer.trackPixelLength - 220;
-      const trackWidthSpan = finishX - startX;
-      const horseX = startX + horse.progress * trackWidthSpan;
-      const horseY = this.renderer.trackTop + horse.lane * this.renderer.laneHeight + this.renderer.laneHeight * 0.55;
       this.renderer.addItemPopParticle(horseX, horseY);
     } else if (type === 'itemUseShield' || type === 'shieldBlock') {
       sound.playShield();

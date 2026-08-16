@@ -74,6 +74,10 @@ export class ItemManager {
   static executeItem({ horse, item, horses, totalDistance, obstacles, projectiles, triggerEvent, onEvent }) {
     if (!item) return;
 
+    // 아이템 사용 즉시 보유 슬롯에서 소모 & 제거
+    horse.heldItem = null;
+    horse.heldItemTimer = 0;
+
     switch (item.id) {
       case 'booster': {
         const isWildcardTail = horse.strategy && horse.strategy.id === 'wildcard' && horse.rank >= horses.length - 1;

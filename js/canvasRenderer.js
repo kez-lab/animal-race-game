@@ -70,6 +70,8 @@ export class CanvasRenderer {
     this.targetCameraX = 0;
     this.particles = [];
     this.confetti = [];
+    this.shockwaves = [];
+    this.floatingPopups = [];
     this.animTime = 0;
   }
 
@@ -626,17 +628,107 @@ export class CanvasRenderer {
     this.ctx.restore();
   }
 
-  addItemPopParticle(x, y) {
-    const colors = ['#F59E0B', '#FDE68A', '#38BDF8', '#FFFFFF'];
-    for (let i = 0; i < 14; i++) {
+  triggerItemUseEffect(horse, item, x, y) {
+    if (!item) return;
+
+    let themeColor = '#F59E0B';
+    let label = `✨ ${item.name || '아이템'} 사용!`;
+    let particleColors = ['#F59E0B', '#FDE68A', '#FFFFFF'];
+
+    switch (item.id) {
+      case 'booster':
+        themeColor = '#F59E0B';
+        label = '🚀 부스터 발동!';
+        particleColors = ['#F59E0B', '#F97316', '#FDE68A', '#FFFFFF'];
+        break;
+      case 'shield':
+        themeColor = '#06B6D4';
+        label = '🛡️ 쉴드 방어막 전개!';
+        particleColors = ['#06B6D4', '#67E8F9', '#3B82F6', '#FFFFFF'];
+        break;
+      case 'lightning':
+        themeColor = '#FACC15';
+        label = '⚡️ 번개 폭풍 작렬!';
+        particleColors = ['#FACC15', '#FEF08A', '#38BDF8', '#FFFFFF'];
+        break;
+      case 'missile':
+        themeColor = '#EF4444';
+        label = '🎯 선두 저격 미사일 발사!';
+        particleColors = ['#EF4444', '#F97316', '#FDE047', '#FFFFFF'];
+        break;
+      case 'banana':
+        themeColor = '#EAB308';
+        label = '🍌 바나나 함정 매설!';
+        particleColors = ['#EAB308', '#FEF08A', '#84CC16', '#FFFFFF'];
+        break;
+      case 'magnet':
+        themeColor = '#A855F7';
+        label = '🧲 초전도 자석 발동!';
+        particleColors = ['#A855F7', '#C084FC', '#38BDF8', '#FFFFFF'];
+        break;
+    }
+
+    // 1. 쇼크웨이브 링 파동 (2중 링)
+    this.shockwaves.push({
+      x, y,
+      radius: 12,
+      maxRadius: 80,
+      color: themeColor,
+      alpha: 1.0,
+      life: 0.55,
+      maxLife: 0.55,
+      lineWidth: 4.5
+    });
+    this.shockwaves.push({
+      x, y,
+      radius: 6,
+      maxRadius: 50,
+      color: '#FFFFFF',
+      alpha: 0.9,
+      life: 0.4,
+      maxLife: 0.4,
+      lineWidth: 2.5
+    });
+
+    // 2. 위로 솟아오르는 플로팅 텍스트 팝업
+    this.floatingPopups.push({
+      x,
+      y: y - 32,
+      vy: -60,
+      text: label,
+      bg: themeColor,
+      alpha: 1.0,
+      life: 0.9,
+      maxLife: 0.9
+    });
+
+    // 3. 방사형 파티클 버스트 (24개)
+    for (let i = 0; i < 24; i++) {
+      const angle = (Math.PI * 2 / 24) * i + (Math.random() - 0.5) * 0.4;
+      const speed = 4 + Math.random() * 5.5;
       this.particles.push({
         x, y,
-        vx: (Math.random() - 0.5) * 6,
-        vy: (Math.random() - 0.5) * 6,
-        size: 3 + Math.random() * 3,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1.2,
+        size: 3.5 + Math.random() * 4,
+        alpha: 1.0,
+        color: particleColors[Math.floor(Math.random() * particleColors.length)],
+        life: 0.55
+      });
+    }
+  }
+
+  addItemPopParticle(x, y) {
+    const colors = ['#F59E0B', '#FDE68A', '#38BDF8', '#FFFFFF'];
+    for (let i = 0; i < 16; i++) {
+      this.particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 7,
+        vy: (Math.random() - 0.5) * 7,
+        size: 3.5 + Math.random() * 3.5,
         alpha: 1.0,
         color: colors[Math.floor(Math.random() * colors.length)],
-        life: 0.45
+        life: 0.5
       });
     }
   }
@@ -684,15 +776,41 @@ export class CanvasRenderer {
   }
 
   updateParticles(dt) {
-    // 먼지/스파크 업데이트
+    // 먼지/스파크/버스트 업데이트
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.x += p.vx;
       p.y += p.vy;
       p.life -= dt;
-      p.alpha = Math.max(0, p.life / 0.5);
+      p.alpha = Math.max(0, p.life / 0.55);
       if (p.life <= 0) {
         this.particles.splice(i, 1);
+      }
+    }
+
+    // 쇼크웨이브 링 업데이트
+    if (this.shockwaves) {
+      for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+        const sw = this.shockwaves[i];
+        sw.radius += (sw.maxRadius - sw.radius) * (dt * 9);
+        sw.life -= dt;
+        sw.alpha = Math.max(0, sw.life / sw.maxLife);
+        if (sw.life <= 0) {
+          this.shockwaves.splice(i, 1);
+        }
+      }
+    }
+
+    // 플로팅 텍스트 팝업 업데이트
+    if (this.floatingPopups) {
+      for (let i = this.floatingPopups.length - 1; i >= 0; i--) {
+        const pop = this.floatingPopups[i];
+        pop.y += pop.vy * dt;
+        pop.life -= dt;
+        pop.alpha = Math.max(0, Math.min(1.0, pop.life / (pop.maxLife * 0.35)));
+        if (pop.life <= 0) {
+          this.floatingPopups.splice(i, 1);
+        }
       }
     }
 
@@ -712,6 +830,21 @@ export class CanvasRenderer {
   }
 
   renderParticles() {
+    // 1. 쇼크웨이브 링
+    if (this.shockwaves) {
+      this.shockwaves.forEach(sw => {
+        this.ctx.save();
+        this.ctx.globalAlpha = sw.alpha;
+        this.ctx.strokeStyle = sw.color;
+        this.ctx.lineWidth = sw.lineWidth;
+        this.ctx.beginPath();
+        this.ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+        this.ctx.stroke();
+        this.ctx.restore();
+      });
+    }
+
+    // 2. 스파크/버스트 파티클
     this.particles.forEach(p => {
       this.ctx.save();
       this.ctx.globalAlpha = p.alpha;
@@ -721,6 +854,33 @@ export class CanvasRenderer {
       this.ctx.fill();
       this.ctx.restore();
     });
+
+    // 3. 플로팅 텍스트 팝업
+    if (this.floatingPopups) {
+      this.floatingPopups.forEach(pop => {
+        this.ctx.save();
+        this.ctx.globalAlpha = pop.alpha;
+        this.ctx.font = 'bold 12px Pretendard, sans-serif';
+        const tw = this.ctx.measureText(pop.text).width + 16;
+        const th = 22;
+
+        // 배지 배경 그림자 & 박스
+        this.ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        this.ctx.shadowBlur = 8;
+        this.ctx.fillStyle = pop.bg;
+        this.ctx.beginPath();
+        this.ctx.roundRect ? this.ctx.roundRect(pop.x - tw / 2, pop.y - th / 2, tw, th, 6) : this.ctx.fillRect(pop.x - tw / 2, pop.y - th / 2, tw, th);
+        this.ctx.fill();
+
+        // 텍스트
+        this.ctx.shadowBlur = 0;
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(pop.text, pop.x, pop.y);
+        this.ctx.restore();
+      });
+    }
   }
 
   renderConfetti() {
