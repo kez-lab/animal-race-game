@@ -332,8 +332,10 @@ export class RaceEngine {
   pickupItem(horse) {
     let possibleItems = [];
     if (horse.rank === 1) {
+      // 선두는 바나나, 쉴드, 부스터 위주
       possibleItems = [ITEM_TYPES.BANANA, ITEM_TYPES.SHIELD, ITEM_TYPES.BOOSTER];
     } else if (horse.rank >= this.horses.length - 1) {
+      // 꼴찌권은 역전용 번개, 미사일, 자석, 부스터 위주
       possibleItems = [ITEM_TYPES.BOOSTER, ITEM_TYPES.LIGHTNING, ITEM_TYPES.MAGNET, ITEM_TYPES.MISSILE];
     } else {
       possibleItems = Object.values(ITEM_TYPES);
@@ -341,29 +343,62 @@ export class RaceEngine {
 
     const picked = possibleItems[Math.floor(Math.random() * possibleItems.length)];
     horse.heldItem = picked;
+    horse.heldItemTimer = 0;
 
     this.onEvent('itemPickup', horse, { item: picked });
-
-    // 0.35초 후 자동 아이템 사용
-    setTimeout(() => {
-      if (this.isRunning && !horse.finished && horse.heldItem) {
-        this.useItem(horse, horse.heldItem);
-        horse.heldItem = null;
-      }
-    }, 350);
   }
 
   useItem(horse, item) {
     if (item.id === 'booster') {
-      this.triggerEvent(horse, 'boost', `🚀 [${horse.name}] 부스터 가속!`, item.duration, item.speedMultiplier);
+      const extra = (horse.strategy && horse.strategy.id === 'wildcard' && horse.rank >= this.horses.length - 1) ? 1.2 : 1.0;
+      this.triggerEvent(horse, 'boost', `🚀 [${horse.name}] 부스터 가속!`, item.duration, item.speedMultiplier * extra);
       this.onEvent('itemUseBooster', horse, { item });
     } else if (item.id === 'banana') {
-      this.obstacles.push({
-        id: `banana_${Date.now()}_${Math.random()}`,
-        type: 'banana',
-        lane: horse.lane,
-        distance: Math.max(0, horse.distance - 20)
-      });
+      // 지능형 바나나 투척: 뒤따라오는 추격자의 레인 앞 또는 인접 레인에 정확히 매설
+      const trailingHorses = this.horses
+        .filter(h => h.id !== horse.id && h.distance < horse.distance && !h.finished)
+        .sort((a, b) => b.distance - a.distance);
+
+      if (trailingHorses.length > 0) {
+        // 가장 가깝게 쫓아오는 추격자 1~2명의 레인에 투척
+        const target1 = trailingHorses[0];
+        const dropDist1 = Math.min(horse.distance - 10, target1.distance + 35);
+        this.obstacles.push({
+          id: `banana_${Date.now()}_1`,
+          type: 'banana',
+          lane: target1.lane,
+          distance: Math.max(10, dropDist1),
+          targetName: target1.name
+        });
+
+        // 1위이거나 추격자가 많으면 보너스 바나나 1개 더 투척
+        if (trailingHorses.length >= 2 && Math.random() < 0.6) {
+          const target2 = trailingHorses[1];
+          const dropDist2 = Math.min(horse.distance - 15, target2.distance + 40);
+          this.obstacles.push({
+            id: `banana_${Date.now()}_2`,
+            type: 'banana',
+            lane: target2.lane,
+            distance: Math.max(10, dropDist2),
+            targetName: target2.name
+          });
+        }
+      } else {
+        // 꼴찌인 경우: 앞서 달리는 선두 주자 레인 앞 40m에 함정 투척
+        const leadingHorses = this.horses
+          .filter(h => h.id !== horse.id && h.distance > horse.distance && !h.finished)
+          .sort((a, b) => a.distance - b.distance);
+        if (leadingHorses.length > 0) {
+          const target = leadingHorses[0];
+          this.obstacles.push({
+            id: `banana_${Date.now()}_lead`,
+            type: 'banana',
+            lane: target.lane,
+            distance: target.distance + 45,
+            targetName: target.name
+          });
+        }
+      }
       this.onEvent('itemUseBanana', horse, { item });
     } else if (item.id === 'shield') {
       horse.shieldActive = true;
@@ -377,7 +412,7 @@ export class RaceEngine {
             target.shieldActive = false;
             this.onEvent('shieldBlock', target, { attacker: horse });
           } else {
-            this.triggerEvent(target, 'slip', `⚡️ [${target.name}] 번개 감전!`, item.stunDuration, 0.45);
+            this.triggerEvent(target, 'slip', `⚡️ [${target.name}] 번개 감전!`, item.stunDuration, 0.4);
           }
         }
       });
@@ -389,16 +424,18 @@ export class RaceEngine {
           fromHorse: horse,
           targetHorse: target,
           x: horse.distance,
-          targetX: target.distance,
-          lane: target.lane,
-          speed: horse.baseSpeed * 2.5
+          fromLane: horse.lane,
+          targetLane: target.lane,
+          speed: horse.baseSpeed * 2.8
         });
         this.onEvent('itemUseMissile', horse, { item, target });
       } else {
         this.triggerEvent(horse, 'boost', `🚀 [${horse.name}] 미사일 로켓 부스터!`, 2.0, 1.4);
       }
     } else if (item.id === 'magnet') {
-      this.triggerEvent(horse, 'boost', `🧲 [${horse.name}] 자석 견인 질주!`, item.duration, item.speedMultiplier);
+      const target = this.leadHorse && this.leadHorse.id !== horse.id ? this.leadHorse : null;
+      const boostVal = target ? 1.55 : 1.35;
+      this.triggerEvent(horse, 'boost', `🧲 [${horse.name}] 자석 견인 질주!`, item.duration, boostVal);
       this.onEvent('itemUseMagnet', horse, { item });
     }
   }
@@ -406,13 +443,13 @@ export class RaceEngine {
   checkObstacleCollisions(horse) {
     for (let i = this.obstacles.length - 1; i >= 0; i--) {
       const obs = this.obstacles[i];
-      if (obs.lane === horse.lane && Math.abs(horse.distance - obs.distance) < 18) {
+      if (obs.lane === horse.lane && Math.abs(horse.distance - obs.distance) < 20) {
         this.obstacles.splice(i, 1);
         if (horse.shieldActive) {
           horse.shieldActive = false;
           this.onEvent('shieldBlock', horse, { obstacle: obs });
         } else {
-          this.triggerEvent(horse, 'slip', `🍌 [${horse.name}] 바나나 미끄러짐!`, 1.4, 0.4);
+          this.triggerEvent(horse, 'slip', `🍌 [${horse.name}] 바나나 미끄러짐!`, 1.6, 0.35);
           this.onEvent('obstacleHit', horse, { obstacle: obs });
         }
       }

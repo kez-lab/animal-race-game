@@ -350,22 +350,35 @@ export class CanvasRenderer {
     });
   }
 
-  renderProjectiles(projectiles, startX, trackWidthSpan) {
+  renderProjectiles(projectiles, startX, trackWidthSpan, totalDistance) {
     projectiles.forEach(proj => {
-      const px = startX + (proj.x / 1200) * trackWidthSpan;
-      const py = this.trackTop + proj.lane * this.laneHeight + this.laneHeight * 0.55;
+      const px = startX + (proj.x / totalDistance) * trackWidthSpan;
+      const fromL = proj.fromLane !== undefined ? proj.fromLane : (proj.targetHorse ? proj.targetHorse.lane : 0);
+      const toL = proj.targetLane !== undefined ? proj.targetLane : (proj.targetHorse ? proj.targetHorse.lane : 0);
+
+      const startDist = proj.fromHorse ? proj.fromHorse.distance : 0;
+      const targetDist = proj.targetHorse ? proj.targetHorse.distance : totalDistance;
+      const flyProgress = Math.min(1.0, Math.max(0, (proj.x - startDist) / Math.max(1, targetDist - startDist)));
+      const currentLane = fromL + (toL - fromL) * flyProgress;
+
+      const py = this.trackTop + currentLane * this.laneHeight + this.laneHeight * 0.55;
 
       this.ctx.save();
       this.ctx.translate(px, py);
 
-      // 미사일 후방 연기
-      this.ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+      // 미사일 후방 연기 및 화염 이펙트
+      this.ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
       this.ctx.beginPath();
-      this.ctx.arc(-10, 0, 6, 0, Math.PI * 2);
+      this.ctx.arc(-10, 0, 7, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = 'rgba(245, 158, 11, 0.8)';
+      this.ctx.beginPath();
+      this.ctx.arc(-6, 0, 4, 0, Math.PI * 2);
       this.ctx.fill();
 
       // 미사일 아이콘
-      this.ctx.font = '16px serif';
+      this.ctx.font = '18px serif';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText('🎯', 0, 0);
