@@ -6,6 +6,8 @@
 import { HORSE_COLORS, OFFICE_NICKNAMES, DEFAULT_PRESETS, AI_STRATEGIES, COFFEE_MENUS, FUNNY_RECEIPT_NOTES } from './presets.js';
 import { sound } from './sound.js';
 import { aiEngine } from './aiEngine.js';
+import { calculatePenaltyHorses, calculateEstimatedPrice, RULE_DESCRIPTIONS } from './penalty.js';
+import { PresetManager, STORAGE_KEYS } from './presetManager.js';
 import { RaceEngine } from './raceEngine.js';
 import { CanvasRenderer } from './canvasRenderer.js';
 import { Commentator } from './commentator.js';
@@ -91,20 +93,11 @@ class OfficeDerbyApp {
 
   loadInitialData() {
     // 1. 프리셋 로드 (로컬 스토리지 우선)
-    const savedPresets = localStorage.getItem('office_derby_custom_presets');
-    if (savedPresets) {
-      try {
-        this.customPresets = JSON.parse(savedPresets);
-      } catch (e) {
-        this.customPresets = [...DEFAULT_PRESETS];
-      }
-    } else {
-      this.customPresets = [...DEFAULT_PRESETS];
-    }
+    this.customPresets = PresetManager.loadPresets();
     this.renderPresetChips();
 
     // 2. 참가자 목록 로드
-    const savedParticipants = localStorage.getItem('office_derby_participants');
+    const savedParticipants = localStorage.getItem(STORAGE_KEYS.PARTICIPANTS);
     if (savedParticipants) {
       try {
         const parsed = JSON.parse(savedParticipants);
@@ -142,14 +135,12 @@ class OfficeDerbyApp {
 
   saveParticipants() {
     try {
-      localStorage.setItem('office_derby_participants', JSON.stringify(this.participants));
+      localStorage.setItem(STORAGE_KEYS.PARTICIPANTS, JSON.stringify(this.participants));
     } catch (e) {}
   }
 
   savePresets() {
-    try {
-      localStorage.setItem('office_derby_custom_presets', JSON.stringify(this.customPresets));
-    } catch (e) {}
+    PresetManager.savePresets(this.customPresets);
     this.renderPresetChips();
   }
 
@@ -687,23 +678,7 @@ class OfficeDerbyApp {
   }
 
   calculatePenaltyHorses(finalRankings) {
-    const total = finalRankings.length;
-    let penaltyHorses = [];
-
-    if (this.selectedRule === 'last1') {
-      penaltyHorses = [finalRankings[total - 1]];
-    } else if (this.selectedRule === 'last2') {
-      penaltyHorses = [finalRankings[total - 1], finalRankings[total - 2]].filter(Boolean);
-    } else if (this.selectedRule === 'winnerSafe') {
-      penaltyHorses = finalRankings.slice(1);
-    } else if (this.selectedRule === 'randomTarget') {
-      const targetRank = total >= 4 ? 4 : Math.ceil(total / 2);
-      penaltyHorses = [finalRankings[targetRank - 1]];
-    } else {
-      penaltyHorses = [finalRankings[total - 1]];
-    }
-
-    return penaltyHorses;
+    return calculatePenaltyHorses(finalRankings, this.selectedRule);
   }
 
   showResultModal(finalRankings, penaltyHorses) {
@@ -718,27 +693,19 @@ class OfficeDerbyApp {
     const penaltyNames = penaltyHorses.map(h => `${h.name}님`).join(', ');
     this.receiptPayerName.textContent = `${penaltyNames} (결제 확정)`;
 
-    const ruleDescriptions = {
-      last1: '☕️ 꼴찌 1명 전원 커피 몰빵',
-      last2: '👥 하위 2명 균등 뿜빠이',
-      winnerSafe: '👑 1등 제외 전원 균등 분담',
-      randomTarget: '🎯 지정 순위(4등) 깜짝 벌칙'
-    };
-    this.receiptRuleDesc.textContent = ruleDescriptions[this.selectedRule] || '커피내기 벌칙';
+    this.receiptRuleDesc.textContent = RULE_DESCRIPTIONS[this.selectedRule] || '커피내기 벌칙';
 
     const now = new Date();
     const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     this.receiptDate.textContent = `${dateStr} | 주문번호: #${Math.floor(1000 + Math.random() * 9000)}`;
 
     const totalCount = finalRankings.length;
+    const priceCalculation = calculateEstimatedPrice(totalCount, this.includeCoffeeMenu);
+    const totalEstimatedPrice = priceCalculation.totalAmount;
+    const pickedMenu = priceCalculation.menu;
+
     let menuHtml = '';
-    let totalEstimatedPrice = 0;
-
     if (this.includeCoffeeMenu) {
-      const pickedMenu = COFFEE_MENUS[Math.floor(Math.random() * COFFEE_MENUS.length)];
-      const basePrice = parseInt(pickedMenu.price.replace(/[^0-9]/g, ''), 10);
-      totalEstimatedPrice = basePrice * totalCount;
-
       menuHtml = `
         <div class="receipt-row">
           <span>${pickedMenu.name}</span>
@@ -750,10 +717,9 @@ class OfficeDerbyApp {
         </div>
       `;
     } else {
-      totalEstimatedPrice = 4500 * totalCount;
       menuHtml = `
         <div class="receipt-row">
-          <span>☕️ 아이스 아메리카노 외 음료</span>
+          <span>${pickedMenu.name}</span>
           <span>총 ${totalCount}잔</span>
         </div>
       `;

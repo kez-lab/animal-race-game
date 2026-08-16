@@ -1,0 +1,12 @@
+{
+  "name": "office-derby-game",
+  "version": "1.0.0",
+  "description": "회사 사내 커피내기 경마 게임 (Office Derby)",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": ["game", "canvas", "on-device-ai", "racing"],
+  "author": "kez-lab",
+  "license": "MIT"
+}
