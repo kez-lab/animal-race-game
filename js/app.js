@@ -312,7 +312,7 @@ class OfficeDerbyApp {
 
     if (this.customPresets.length === 0) {
       this.presetChipsContainer.innerHTML = `
-        <span style="font-size: 11px; color: var(--text-muted);">저장된 프리셋이 없습니다. 명단 등록 후 [현재 명단 저장]을 눌러보세요!</span>
+        <span class="preset-empty-hint">저장된 팀 프리셋이 없습니다</span>
       `;
       return;
     }
@@ -829,22 +829,17 @@ class OfficeDerbyApp {
     if (emptyState) emptyState.remove();
 
     const skel = document.createElement('div');
-    skel.className = 'participant-item participant-skeleton-card';
+    skel.className = 'participant-skeleton-card';
     skel.innerHTML = `
-      <div class="horse-info">
-        <div class="horse-number-badge skeleton-pulse-badge" style="background: ${color.body}; border: 2px solid ${color.border};">
-          ${String(gateNumber).padStart(2, '0')}
+      <div class="skeleton-badge-circle" style="background: ${color.body}; border-color: ${color.border};">
+        <span class="ai-spinner"></span>
+      </div>
+      <div class="skeleton-body">
+        <div class="skeleton-title-row">
+          <span class="skeleton-name">G${gateNumber} · ${escapeHtml(name)}</span>
+          <span class="skeleton-ai-chip">🧠 온디바이스 AI 별명·전용마 합성 중...</span>
         </div>
-        <div class="horse-meta">
-          <div class="horse-name-row">
-            <span class="horse-name">${escapeHtml(name)}</span>
-            <span class="ai-generating-pill"><span class="ai-spinner"></span> 온디바이스 AI가 별명·전용마 합성 중...</span>
-          </div>
-          <div class="skeleton-bar-row">
-            <div class="ai-skeleton-line" style="width: 180px; height: 10px;"></div>
-            <div class="ai-skeleton-line" style="width: 90px; height: 10px;"></div>
-          </div>
-        </div>
+        <div class="skeleton-bar-shimmer"></div>
       </div>
     `;
     this.participantListEl.appendChild(skel);
@@ -869,7 +864,7 @@ class OfficeDerbyApp {
     // 1. 버튼 및 인라인 AI 로딩 배너 + 스켈레톤 카드 즉시 표시
     const targetBtn = sourceBtn || this.addParticipantBtn;
     AILoader.setButtonLoading(targetBtn, true, 'AI 생성 중...');
-    this.showInlineAiBanner(`🧠 온디바이스 AI가 [${cleanName}]님의 사내 별명 & 주행 전술을 합성하고 있습니다...`);
+    this.showInlineAiBanner(`🧠 온디바이스 AI가 [${cleanName}] 기수의 사내 별명 & 주행 전술을 합성하고 있습니다...`);
     const skelEl = this.appendSkeletonParticipantCard(cleanName, idx + 1, color);
 
     // 2. 온디바이스 AI 별명 생성 (초고속 폴백일 때도 최소 280ms의 시각적 피드백 보장)
@@ -899,6 +894,9 @@ class OfficeDerbyApp {
     });
 
     this.renderParticipantList();
+    if (this.participantListEl) {
+      this.participantListEl.scrollTop = this.participantListEl.scrollHeight;
+    }
     this.saveParticipants();
     this.updateAIEngineBadge();
     this.showToast(`✨ [${cleanName}] 기수 등록 완료! (#${aiNick})`);
@@ -956,6 +954,9 @@ class OfficeDerbyApp {
       this.renderParticipantList();
     }
 
+    if (this.participantListEl) {
+      this.participantListEl.scrollTop = 0;
+    }
     AILoader.setButtonLoading(this.bulkAddBtn, false);
     this.hideInlineAiBanner();
     this.saveParticipants();
@@ -1032,14 +1033,14 @@ class OfficeDerbyApp {
         const p = this.participants[i];
         if (p) {
           slots.push(`
-            <div class="gate-slot-seg filled" style="background: ${p.color.body}; border-color: ${p.color.border};" title="${i + 1}번 게이트: ${escapeHtml(p.name)}">
-              <span>${i + 1}</span>
+            <div class="gate-slot-seg filled" style="--slot-color: ${p.color.body}; background: ${p.color.body}; border-color: ${p.color.border};" title="${i + 1}번 게이트: ${escapeHtml(p.name)}">
+              <span>G${i + 1}</span>
             </div>
           `);
         } else {
           slots.push(`
             <div class="gate-slot-seg" title="${i + 1}번 빈 게이트">
-              <span>${i + 1}</span>
+              <span>G${i + 1}</span>
             </div>
           `);
         }
@@ -1076,12 +1077,16 @@ class OfficeDerbyApp {
       const strat = p.strategy || AI_STRATEGIES[idx % AI_STRATEGIES.length];
       const stats = p.stats || { speed: 70, accel: 70, stamina: 70, luck: 70, intellect: 70 };
       const horseName = p.horseName || `${p.name}의 말`;
+      const compactHorseName = horseName.replace(/\s*\([^)]*\)/g, '').trim();
+      const displayHorseName = /^[\p{Emoji}\u2600-\u27BF]/u.test(compactHorseName)
+        ? compactHorseName
+        : `🏇 ${compactHorseName}`;
       const menuObj = COFFEE_MENUS.find(m => m.id === p.drinkId);
       const drinkLabel = menuObj ? `☕️ ${menuObj.shortName} (${menuObj.price})` : '🎲 랜덤 음료';
       const isJustAdded = this.lastAddedIds && this.lastAddedIds.has(p.id);
 
       return `
-        <div class="participant-item ${isJustAdded ? 'just-added' : ''}">
+        <div class="participant-item ${isJustAdded ? 'just-added' : ''}" style="--jockey-color: ${p.color.body};">
           <div class="horse-number-badge" style="background: ${p.color.body}; border: 2px solid ${p.color.border};">
             <span class="gate-num-label">G${idx + 1}</span>
           </div>
@@ -1091,11 +1096,10 @@ class OfficeDerbyApp {
                 <span class="horse-name">${escapeHtml(p.name)}</span>
                 <span class="horse-nick">✨ #${escapeHtml(p.nickname)}</span>
               </div>
-              <button class="delete-btn" data-index="${idx}" title="기수 제외">✕</button>
             </div>
             <div class="jockey-control-pills">
-              <button type="button" class="horse-draft-badge" data-index="${idx}" title="전용 경주마 변경 및 350pt 능력치 상세 보기">
-                <span class="pill-main">🏇 ${escapeHtml(horseName)}</span>
+              <button type="button" class="horse-draft-badge" data-index="${idx}" title="전용 경주마 변경 및 350pt 능력치 상세 보기: ${escapeHtml(horseName)}">
+                <span class="pill-main">${escapeHtml(displayHorseName)}</span>
                 <span class="pill-stats">⚡️${stats.speed} 🚀${stats.accel} 🔋${stats.stamina}</span>
               </button>
               <button type="button" class="horse-ai-btn" data-index="${idx}" title="클릭하여 AI 주행 성향 변경: ${escapeHtml(strat.desc)}">
@@ -1106,6 +1110,7 @@ class OfficeDerbyApp {
               </button>
             </div>
           </div>
+          <button type="button" class="delete-btn" data-index="${idx}" title="기수 제외">✕</button>
         </div>
       `;
     }).join('');
@@ -1113,7 +1118,12 @@ class OfficeDerbyApp {
     if (this.lastAddedIds && this.lastAddedIds.size > 0) {
       setTimeout(() => {
         this.lastAddedIds.clear();
-      }, 600);
+        if (this.participantListEl) {
+          this.participantListEl.querySelectorAll('.participant-item.just-added').forEach(el => {
+            el.classList.remove('just-added');
+          });
+        }
+      }, 650);
     }
 
     this.participantListEl.querySelectorAll('.horse-draft-badge').forEach(btn => {
@@ -1595,13 +1605,13 @@ class OfficeDerbyApp {
     this.podiumName3.textContent = third ? `${third.name}` : '-';
 
     if (this.podiumMeta1) {
-      this.podiumMeta1.textContent = winner ? `#${winner.nickname} · ${winner.finishTime ? winner.finishTime.toFixed(2) : '-'}초` : '-';
+      this.podiumMeta1.textContent = winner ? `${winner.finishTime ? winner.finishTime.toFixed(2) : '-'}초 · #${winner.nickname}` : '-';
     }
     if (this.podiumMeta2) {
-      this.podiumMeta2.textContent = second ? `#${second.nickname} · ${second.finishTime ? second.finishTime.toFixed(2) : '-'}초` : '-';
+      this.podiumMeta2.textContent = second ? `${second.finishTime ? second.finishTime.toFixed(2) : '-'}초 · #${second.nickname}` : '-';
     }
     if (this.podiumMeta3) {
-      this.podiumMeta3.textContent = third ? `#${third.nickname} · ${third.finishTime ? third.finishTime.toFixed(2) : '-'}초` : '-';
+      this.podiumMeta3.textContent = third ? `${third.finishTime ? third.finishTime.toFixed(2) : '-'}초 · #${third.nickname}` : '-';
     }
 
     if (this.podiumAvatar1 && winner?.color) {
@@ -1668,8 +1678,9 @@ class OfficeDerbyApp {
     }
     if (this.spotlightWinnerMeta) {
       const winTime = winner?.finishTime ? `${winner.finishTime.toFixed(2)}초` : '-';
-      const horseLabel = winner?.horseName || '전용마';
-      this.spotlightWinnerMeta.textContent = `🏇 ${horseLabel} · 완주 ${winTime} (추월 ${winner?.overtakes || 0}회)`;
+      const rawHorse = winner?.horseName || '전용마';
+      const horseLabel = /^[\p{Emoji}\u2600-\u27BF]/u.test(rawHorse) ? rawHorse : `🏇 ${rawHorse}`;
+      this.spotlightWinnerMeta.textContent = `${horseLabel} · 완주 ${winTime} (추월 ${winner?.overtakes || 0}회)`;
     }
     if (this.spotlightPayerName) {
       this.spotlightPayerName.textContent = penaltyNames || '-';

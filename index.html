@@ -79,15 +79,15 @@
           <!-- 12-Gate Visual Slot Meter -->
           <div class="gate-meter-wrap">
             <div class="gate-meter-header">
-              <span class="gate-meter-label">🏁 스타팅 게이트 슬롯 (최소 2명 ~ 최대 12명)</span>
-              <span id="gateStatusHint" class="gate-status-hint">2명 이상 등록 시 출발 가능</span>
+              <span class="gate-meter-label">🏁 스타팅 게이트 현황 (최소 2명 ~ 최대 12명)</span>
+              <span id="gateStatusHint" class="gate-status-hint">최소 2명 이상 등록해주세요</span>
             </div>
             <div id="gateSlotVisualBar" class="gate-slot-bar" aria-hidden="true">
               <!-- 12 gate segments rendered dynamically -->
             </div>
           </div>
 
-          <!-- Single Input Form + Quick Role Chips -->
+          <!-- Single Input Form + Quick Role Chips + Bulk Paste -->
           <div class="entry-input-panel">
             <form id="addParticipantForm" class="input-group" onsubmit="return false;">
               <div class="input-wrapper">
@@ -101,7 +101,7 @@
 
             <!-- 1-Click Quick Role Add Chips -->
             <div class="quick-role-bar" id="quickRoleAddBar">
-              <span class="quick-role-label">⚡️ 1초 추가:</span>
+              <span class="quick-role-label">⚡️ 1초 추가</span>
               <button type="button" class="quick-role-chip" data-role-name="김팀장">+ 김팀장</button>
               <button type="button" class="quick-role-chip" data-role-name="이책임">+ 이책임</button>
               <button type="button" class="quick-role-chip" data-role-name="박과장">+ 박과장</button>
@@ -110,48 +110,55 @@
               <button type="button" class="quick-role-chip" data-role-name="강인턴">+ 강인턴</button>
             </div>
 
-            <!-- Bulk Paste Accordion -->
-            <details class="bulk-paste-details">
-              <summary>📋 슬랙/엑셀 명단 한 번에 붙여넣기 (쉼표·줄바꿈 구분)</summary>
-              <textarea id="bulkInput" class="bulk-textarea" placeholder="김팀장, 이책임, 박선임, 최대리, 정사원, 강인턴"></textarea>
-              <button type="button" id="bulkAddBtn" class="btn-bulk-submit">⚡️ 명단 일괄 AI 등록하기</button>
-            </details>
-          </div>
-
-          <!-- Custom Preset Bar & AI Action Toolbar -->
-          <div class="entry-toolbar-row">
-            <div class="preset-section">
-              <div class="preset-header">
-                <span class="preset-label">📌 저장된 우리 팀 프리셋</span>
-                <button id="saveCurrentPresetBtn" class="btn-preset-save">
-                  💾 현재 명단 저장
+            <!-- Preset & Bulk Paste Unified Footer -->
+            <div class="entry-panel-footer">
+              <div class="preset-strip-left">
+                <span class="preset-label">📌 프리셋</span>
+                <div id="presetChipsContainer" class="preset-bar">
+                  <!-- Dynamically populated preset chips -->
+                </div>
+                <button type="button" id="saveCurrentPresetBtn" class="btn-preset-save">
+                  💾 명단 저장
                 </button>
               </div>
-              <div id="presetChipsContainer" class="preset-bar">
-                <!-- Dynamically populated preset chips -->
-              </div>
-            </div>
 
+              <details class="bulk-paste-details">
+                <summary>📋 명단 일괄 붙여넣기</summary>
+                <div class="bulk-paste-body">
+                  <textarea id="bulkInput" class="bulk-textarea" placeholder="김팀장, 이책임, 박선임, 최대리, 정사원, 강인턴 (쉼표·줄바꿈 구분)"></textarea>
+                  <button type="button" id="bulkAddBtn" class="btn-bulk-submit">⚡️ 명단 일괄 AI 등록하기</button>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <!-- Roster Toolbar Header -->
+          <div class="roster-toolbar">
+            <div class="roster-toolbar-left">
+              <span class="roster-toolbar-title">📋 출전 라인업</span>
+              <span class="roster-toolbar-hint">배지 클릭 시 전용마·주행전술·희망음료 변경</span>
+            </div>
             <div class="card-quick-actions">
               <button id="aiAutoDraftHorsesBtn" class="btn-action cyan" title="모든 참가자에게 밸런스 경주마를 자동 배정합니다">
-                🎲 AI 말 자동 배정
+                🎲 AI 말 배정
               </button>
               <button id="aiRerollNicknamesBtn" class="btn-action gold" title="온디바이스 AI로 모든 참가자의 별명을 창의적으로 재작성">
-                🪄 AI 별명 일괄 리롤
+                🪄 별명 리롤
               </button>
               <button id="clearAllBtn" class="btn-action danger" title="참가자 명단 전체 삭제">
-                🗑️ 전체 비우기
+                🗑️ 비우기
               </button>
             </div>
           </div>
 
           <!-- Inline AI Generation Progress Banner (Shown when adding participant) -->
           <div id="inlineAiGeneratingBanner" class="inline-ai-banner" style="display: none;" aria-live="polite">
-            <div class="inline-ai-Banner-left">
+            <div class="inline-ai-banner-left">
               <span class="ai-spinner"></span>
-              <span id="inlineAiBannerText">온디바이스 AI가 신규 기수의 사내 별명과 전용마를 분석 중입니다...</span>
+              <span id="inlineAiBannerText" class="inline-ai-text">온디바이스 AI가 신규 기수의 사내 별명과 전용마를 분석 중입니다...</span>
             </div>
-            <span class="inline-ai-tag">NPU ACTIVE</span>
+            <span class="inline-ai-tag">AI NPU</span>
+            <div class="inline-ai-shimmer-bar"></div>
           </div>
 
           <!-- List of Horses -->
@@ -284,17 +291,19 @@
           </div>
 
           <!-- Extra Coffee Menu & Seed Verification Option -->
-          <div class="lottery-option-row">
-            <label class="toggle-container">
-              <input type="checkbox" id="randomCoffeeMenuCheck" checked>
-              <span class="toggle-switch"></span>
-              <span class="toggle-label">🎲 영수증에 <strong>개별 희망 음료 / 추천 메뉴</strong> 정산 포함</span>
-            </label>
-          </div>
+          <div class="extra-options-grid">
+            <div class="lottery-option-row">
+              <label class="toggle-container">
+                <input type="checkbox" id="randomCoffeeMenuCheck" checked>
+                <span class="toggle-switch"></span>
+                <span class="toggle-label">🎲 <strong>희망 음료 메뉴</strong> 영수증 포함</span>
+              </label>
+            </div>
 
-          <div class="seed-input-row">
-            <span class="seed-label" title="특정 시드 코드를 입력하면 동일한 경기 결과를 100% 그대로 재현합니다">🔐 검증 시드(선택):</span>
-            <input type="text" id="customSeedInput" class="seed-input" placeholder="비워두면 매 판 랜덤 생성 (예: A7F9K2)" maxlength="7" autocomplete="off">
+            <div class="seed-input-row">
+              <span class="seed-label" title="특정 시드 코드를 입력하면 동일한 경기 결과를 100% 그대로 재현합니다">🔐 시드:</span>
+              <input type="text" id="customSeedInput" class="seed-input" placeholder="랜덤 (예: A7F9K2)" maxlength="7" autocomplete="off">
+            </div>
           </div>
 
           <!-- Live Cost Estimate Summary Box -->
@@ -421,36 +430,36 @@
         </div>
       </div>
 
-      <!-- Podium Top 3 -->
-      <div id="podiumContainer" class="podium-container">
-        <!-- 2nd Place -->
-        <div class="podium-step rank-2">
-          <div class="podium-avatar" id="podiumAvatar2">🥈</div>
-          <div class="podium-name" id="podiumName2">2위 이름</div>
-          <div class="podium-meta" id="podiumMeta2">-</div>
-          <div class="podium-block"><span>2ND</span></div>
-        </div>
-        <!-- 1st Place -->
-        <div class="podium-step rank-1">
-          <div class="podium-crown-glow"></div>
-          <div class="podium-avatar" id="podiumAvatar1">👑</div>
-          <div class="podium-name" id="podiumName1">1위 이름</div>
-          <div class="podium-meta" id="podiumMeta1">-</div>
-          <div class="podium-block"><span>1ST</span></div>
-        </div>
-        <!-- 3rd Place -->
-        <div class="podium-step rank-3">
-          <div class="podium-avatar" id="podiumAvatar3">🥉</div>
-          <div class="podium-name" id="podiumName3">3위 이름</div>
-          <div class="podium-meta" id="podiumMeta3">-</div>
-          <div class="podium-block"><span>3RD</span></div>
-        </div>
-      </div>
-
       <!-- 2-Column Bento Main Content -->
       <div class="result-bento-grid">
-        <!-- Left Column: AI News + MVP Highlights + Full Leaderboard -->
+        <!-- Left Column: Podium Top 3 + AI News + Full Leaderboard -->
         <div class="result-bento-left">
+          <!-- Podium Top 3 -->
+          <div id="podiumContainer" class="podium-container">
+            <!-- 2nd Place -->
+            <div class="podium-step rank-2">
+              <div class="podium-avatar" id="podiumAvatar2">🥈</div>
+              <div class="podium-name" id="podiumName2">2위 이름</div>
+              <div class="podium-meta" id="podiumMeta2">-</div>
+              <div class="podium-block"><span>2ND</span></div>
+            </div>
+            <!-- 1st Place -->
+            <div class="podium-step rank-1">
+              <div class="podium-crown-glow"></div>
+              <div class="podium-avatar" id="podiumAvatar1">👑</div>
+              <div class="podium-name" id="podiumName1">1위 이름</div>
+              <div class="podium-meta" id="podiumMeta1">-</div>
+              <div class="podium-block"><span>1ST</span></div>
+            </div>
+            <!-- 3rd Place -->
+            <div class="podium-step rank-3">
+              <div class="podium-avatar" id="podiumAvatar3">🥉</div>
+              <div class="podium-name" id="podiumName3">3위 이름</div>
+              <div class="podium-meta" id="podiumMeta3">-</div>
+              <div class="podium-block"><span>3RD</span></div>
+            </div>
+          </div>
+
           <!-- On-Device AI Sports News 1-Paragraph Story -->
           <div class="ai-article-card" id="aiArticleCard">
             <div class="ai-article-header">
@@ -459,16 +468,6 @@
             </div>
             <div class="ai-article-content" id="aiArticleContent">
               <!-- Dynamically generated AI story -->
-            </div>
-          </div>
-
-          <!-- Race MVP Highlights Row -->
-          <div class="mvp-section-card">
-            <div class="ranking-table-title">
-              <span>🏅 레이스 하이라이트 MVP 어워드</span>
-            </div>
-            <div id="mvpAwardsContainer" class="mvp-awards-grid">
-              <!-- Dynamically rendered MVP badges -->
             </div>
           </div>
 
@@ -483,7 +482,7 @@
           </div>
         </div>
 
-        <!-- Right Column: Realistic Thermal Receipt Card (영수증 벌칙 티켓) -->
+        <!-- Right Column: Realistic Thermal Receipt Card + MVP Highlights -->
         <div class="result-bento-right">
           <div id="receiptCard" class="receipt-card">
             <div class="receipt-header">
@@ -548,6 +547,16 @@
               <div class="bar-line" style="width: 4px; margin-left: 2px;"></div>
               <div class="bar-line" style="width: 2px; margin-left: 3px;"></div>
               <div class="bar-line" style="width: 3px; margin-left: 2px;"></div>
+            </div>
+          </div>
+
+          <!-- Race MVP Highlights Row -->
+          <div class="mvp-section-card">
+            <div class="ranking-table-title">
+              <span>🏅 레이스 하이라이트 MVP 어워드</span>
+            </div>
+            <div id="mvpAwardsContainer" class="mvp-awards-grid">
+              <!-- Dynamically rendered MVP badges -->
             </div>
           </div>
         </div>
