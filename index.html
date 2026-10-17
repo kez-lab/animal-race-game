@@ -21,12 +21,25 @@
     <div class="logo-container">
       <div class="logo-icon">🏇</div>
       <div class="logo-title">
-        오피스 더비 <span class="logo-badge">Office Derby ☕️</span>
+        오피스 더비 <span class="logo-badge">Office Derby v2.0 ☕️</span>
       </div>
     </div>
     <div class="header-controls">
-      <button id="soundToggleBtn" class="icon-btn" title="사운드 켜기/끄기">🔊</button>
-      <button id="helpBtn" class="icon-btn" title="게임 설명">❓</button>
+      <button id="aiEngineStatusBtn" class="header-pill-btn ai-status-pill" title="온디바이스 AI 엔진 상태 확인 및 브라우저 WebGPU LLM 활성화">
+        <span id="aiEngineStatusDot" class="ai-status-dot">🧠</span>
+        <span id="aiEngineStatusText" class="pill-text">온디바이스 AI</span>
+      </button>
+      <button id="hallOfFameBtn" class="header-pill-btn gold" title="누적 커피 결제왕 및 명예의 전당 통계">
+        <span>🏆</span>
+        <span class="pill-text">명예의 전당</span>
+        <span id="hallOfFameCountBadge" class="pill-count">0</span>
+      </button>
+      <button id="shareSetupBtn" class="header-pill-btn cyan" title="현재 팀원 명단과 룰 설정을 URL 링크로 복사">
+        <span>🔗</span>
+        <span class="pill-text">설정 링크 공유</span>
+      </button>
+      <button id="soundToggleBtn" class="icon-btn" title="사운드 켜기/끄기 (단축키: M)">🔊</button>
+      <button id="helpBtn" class="icon-btn" title="게임 설명 및 가이드">❓</button>
     </div>
   </header>
 
@@ -36,15 +49,16 @@
     <!-- 1. SETUP VIEW (참가자 및 벌칙 설정 화면) -->
     <section id="setupView" class="view-section active">
       <div class="setup-hero">
-        <div class="hero-badge">☕️ 회사 커피내기 & 간식 결제 사내 레이싱</div>
+        <div class="hero-badge">☕️ 회사 커피내기 & 간식 결제 사내 레이싱 시뮬레이터</div>
         <h1>오피스 더비 (Office Derby)</h1>
         <p class="hero-desc">
           오늘 커피 쏠 사람은 누구? 팀원 이름을 등록하고 승부의 결승선을 질주하세요!
         </p>
         <div class="hero-feature-tags">
-          <span class="feat-tag">🎁 6종 아이템전</span>
-          <span class="feat-tag">🧠 온디바이스 AI 전략 기수</span>
-          <span class="feat-tag">⚖️ 350pt 밸런스 마구간</span>
+          <span class="feat-tag">🎁 8종 오피스 아이템전</span>
+          <span class="feat-tag">⚖️ 공정 추첨 & 350pt 능력치전</span>
+          <span class="feat-tag">💀 실시간 꼴찌 밀착 카메라</span>
+          <span class="feat-tag">🧾 실물 영수증 PNG 발급</span>
         </div>
       </div>
 
@@ -121,8 +135,8 @@
               <label class="radio-card active">
                 <input type="radio" name="gameMode" value="item" checked>
                 <div class="radio-badge item-badge">HOT</div>
-                <div class="radio-title">🎁 신나는 아이템전</div>
-                <div class="radio-desc">부스터, 바나나, 쉴드, 번개, 미사일로 짜릿한 역전극!</div>
+                <div class="radio-title">🎁 8종 아이템전</div>
+                <div class="radio-desc">부스터, 바나나, 번개, 미사일, 에스프레소, 결재서류 대혼전!</div>
               </label>
 
               <label class="radio-card">
@@ -130,6 +144,26 @@
                 <div class="radio-badge speed-badge">CLASSIC</div>
                 <div class="radio-title">🏇 정통 스피드전</div>
                 <div class="radio-desc">순수 스태미나 페이스 조절 & 칼퇴 스퍼트 승부</div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Stat Balance Mode Selector (공정 추첨 vs 능력치 전략전) -->
+          <div class="rule-group">
+            <label class="rule-label">⚖️ 능력치 밸런스 방식</label>
+            <div class="radio-cards stat-mode-cards">
+              <label class="radio-card active">
+                <input type="radio" name="statMode" value="fair" checked>
+                <div class="radio-badge fair-badge">FAIR</div>
+                <div class="radio-title">⚖️ 공정 추첨 (기본)</div>
+                <div class="radio-desc">모든 말의 물리 성능 100% 동일! 불만 제로 커피내기</div>
+              </label>
+
+              <label class="radio-card">
+                <input type="radio" name="statMode" value="stats">
+                <div class="radio-badge stats-badge">PRO</div>
+                <div class="radio-title">🔥 350pt 능력치전</div>
+                <div class="radio-desc">속도·가속·지구력·행운·지능 5대 스탯이 실제 물리에 반영</div>
               </label>
             </div>
           </div>
@@ -183,13 +217,40 @@
             </div>
           </div>
 
-          <!-- Extra Coffee Menu Lottery Option -->
+          <!-- Weather & Track Condition Selector -->
+          <div class="rule-group">
+            <label class="rule-label">🌤️ 경기장 기상 & 시간대</label>
+            <div class="weather-select" id="weatherSelectGroup">
+              <button type="button" class="weather-btn active" data-weather="sunny" title="표준 잔디 노면">
+                <span>☀️ 맑음</span>
+              </button>
+              <button type="button" class="weather-btn" data-weather="rain" title="미끄러운 수중전 (슬립시간 및 체력소모 증가)">
+                <span>🌧️ 수중전</span>
+              </button>
+              <button type="button" class="weather-btn" data-weather="wind" title="거센 돌풍 (미사일 탄속 및 가속 진폭 증가)">
+                <span>🍃 돌풍</span>
+              </button>
+              <button type="button" class="weather-btn" data-weather="night" title="야근 나이트 더비 (막판 칼퇴 스퍼트 대폭 강화)">
+                <span>🌙 야간</span>
+              </button>
+              <button type="button" class="weather-btn" data-weather="random" title="매 경기 무작위 날씨 적용">
+                <span>🎲 랜덤</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Extra Coffee Menu & Seed Verification Option -->
           <div class="lottery-option-row">
             <label class="toggle-container">
               <input type="checkbox" id="randomCoffeeMenuCheck" checked>
               <span class="toggle-switch"></span>
-              <span class="toggle-label">🎲 영수증에 <strong>커피/음료 추천 메뉴</strong>도 함께 뽑기</span>
+              <span class="toggle-label">🎲 영수증에 <strong>개별 희망 음료 / 추천 메뉴</strong> 정산 포함</span>
             </label>
+          </div>
+
+          <div class="seed-input-row">
+            <span class="seed-label" title="특정 시드 코드를 입력하면 동일한 경기 결과를 100% 그대로 재현합니다">🔐 검증 시드(선택):</span>
+            <input type="text" id="customSeedInput" class="seed-input" placeholder="비워두면 매 판 랜덤 생성 (예: A7F9K2)" maxlength="7" autocomplete="off">
           </div>
 
           <!-- Live Cost Estimate Summary Box -->
@@ -197,7 +258,7 @@
             <div class="cost-icon">🧾</div>
             <div class="cost-details">
               <div class="cost-title">예상 커피 결제 견적</div>
-              <div id="costCalculationText" class="cost-calc">참가자 0명 × 약 4,500원 = 예상 결제액 ~0원</div>
+              <div id="costCalculationText" class="cost-calc">참가자를 2명 이상 등록하면 예상 결제 금액이 계산됩니다.</div>
             </div>
           </div>
 
@@ -223,13 +284,21 @@
               <span>🔥</span>
               <span id="raceDistanceBadge">중거리 1600m</span>
             </div>
+            <div class="race-weather-badge" id="raceWeatherBadge">☀️ 맑음</div>
+            <div class="race-seed-badge" id="raceSeedBadge" title="이 시드 코드로 언제든 같은 경기를 재현할 수 있습니다">SEED #-</div>
             <div class="race-timer" id="raceTimerDisplay">⏱️ 00:00.0</div>
           </div>
 
           <div class="race-controls-right">
-            <button id="pauseRaceBtn" class="control-btn" title="일시정지/재개">⏸️ 일시정지</button>
-            <button id="speedRaceBtn" class="control-btn" title="배속 토글">⏩ 1.0x</button>
-            <button id="skipRaceBtn" class="control-btn" title="결과 즉시 보기">⏭️ 결과 스킵</button>
+            <!-- Camera Director Switcher -->
+            <div class="camera-mode-group" role="group" aria-label="카메라 중계 시점">
+              <button type="button" class="control-btn cam-btn active" data-cam="lead" title="1위 선두 그룹 중심 추적 (단축키: C)">🎥 선두 캠</button>
+              <button type="button" class="control-btn cam-btn" data-cam="tail" title="커피 결제 위기! 꼴찌 탈출 혈투 밀착 마크 (단축키: C)">💀 꼴찌 캠</button>
+              <button type="button" class="control-btn cam-btn" data-cam="pack" title="선두와 후미 중간 그룹 조망 (단축키: C)">🏟️ 전체 캠</button>
+            </div>
+            <button id="pauseRaceBtn" class="control-btn" title="일시정지/재개 (단축키: Space)">⏸️ 일시정지</button>
+            <button id="speedRaceBtn" class="control-btn" title="배속 토글 (단축키: 1, 2, 3)">⏩ 1.0x</button>
+            <button id="skipRaceBtn" class="control-btn" title="결과 즉시 보기 (단축키: S)">⏭️ 결과 스킵</button>
           </div>
         </div>
 
@@ -247,6 +316,9 @@
         <!-- 2D Canvas Track -->
         <div class="canvas-wrapper">
           <canvas id="raceCanvas"></canvas>
+          <div class="canvas-shortcut-hint">
+            ⌨️ 단축키: <kbd>Space</kbd> 일시정지 · <kbd>C</kbd> 카메라 전환(선두/꼴찌) · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 배속 · <kbd>S</kbd> 스킵
+          </div>
         </div>
 
         <!-- Bottom Grid: Live Commentary & Leaderboard -->
@@ -254,7 +326,7 @@
           <!-- Live Commentator Box -->
           <div class="commentator-box">
             <div class="box-title">
-              <span>🎙️ 실시간 중계석</span>
+              <span>🎙️ 실시간 AI 중계석</span>
             </div>
             <div id="commentList" class="comment-list">
               <div class="comment-item init">🎙️ 출발 준비 중... 중계석 대기 완료!</div>
@@ -263,8 +335,9 @@
 
           <!-- Live Rank Scoreboard -->
           <div class="leaderboard-box">
-            <div class="box-title">
-              <span>📊 실시간 순위</span>
+            <div class="box-title" style="justify-content: space-between;">
+              <span>📊 실시간 순위 & 지갑 위기 경보</span>
+              <span id="liveDangerSummary" class="live-danger-tag">☕️ 당첨위기 분석중</span>
             </div>
             <div id="liveRankList" class="live-rank-list">
               <!-- Live rank items -->
@@ -282,6 +355,9 @@
       
       <!-- Result Header & Podium -->
       <div class="result-header">
+        <div id="photoFinishBanner" class="photo-finish-banner" style="display: none;">
+          📸 초접전 포토 피니시 판독 경기!
+        </div>
         <div class="result-title">🏆 영광의 시상식 & 벌칙 발표!</div>
         <div class="result-subtitle" id="resultSubtitle">치열했던 레이스가 모두 끝났습니다.</div>
       </div>
@@ -308,6 +384,11 @@
         </div>
       </div>
 
+      <!-- Race MVP Highlights Row -->
+      <div id="mvpAwardsContainer" class="mvp-awards-grid">
+        <!-- Dynamically rendered MVP badges -->
+      </div>
+
       <!-- Realistic Thermal Receipt Card (영수증 벌칙 티켓) -->
       <div id="receiptCard" class="receipt-card">
         <div class="receipt-header">
@@ -329,8 +410,8 @@
           <div class="receipt-divider"></div>
 
           <div class="receipt-row bold">
-            <span>주문 내역</span>
-            <span>수량 / 금액</span>
+            <span>주문 음료 내역</span>
+            <span>수량 / 소계</span>
           </div>
           <div id="receiptMenuItems">
             <div class="receipt-row">
@@ -341,7 +422,11 @@
 
           <div class="receipt-total">
             <span>총 예상 결제금액</span>
-            <span id="receiptTotalAmount">33,000원</span>
+            <span id="receiptTotalAmount">27,000원</span>
+          </div>
+          <div id="receiptPerPersonRow" class="receipt-per-person-row" style="display: none;">
+            <span>1인당 분담 결제액</span>
+            <span id="receiptPerPersonAmount">13,500원</span>
           </div>
         </div>
 
@@ -394,15 +479,76 @@
           <span>📋</span>
           <span>슬랙 / 카톡 결과 복사</span>
         </button>
+        <button id="downloadReceiptBtn" class="action-btn-download">
+          <span>🖼️</span>
+          <span>영수증 PNG 이미지 저장</span>
+        </button>
+        <button id="replaySameSeedBtn" class="action-btn-replay" title="같은 시드로 방금 경기를 완벽히 동일하게 다시 재생합니다">
+          <span>🔁</span>
+          <span>동일 시드 리플레이</span>
+        </button>
         <button id="rematchBtn" class="action-btn-rematch">
           <span>🔄</span>
-          <span>멤버 그대로 다시 하기</span>
+          <span>멤버 그대로 새 경기</span>
         </button>
         <button id="backToSetupBtn" class="action-btn-setup">
           ⚙️ 참가자 & 룰 설정으로 돌아가기
         </button>
       </div>
 
+    </div>
+  </div>
+
+  <!-- 4. HALL OF FAME MODAL (사내 명예의 전당 & 누적 커피 결제 장부) -->
+  <div id="hallOfFameModal" class="modal-overlay">
+    <div class="modal-container" style="max-width: 720px;">
+      <div class="result-header">
+        <div class="result-title">🏆 사내 오피스 더비 명예의 전당</div>
+        <div class="result-subtitle">우리 팀의 누적 커피 결제왕과 최다 우승 에이스 기록장</div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="hof-kpi-grid">
+        <div class="hof-kpi-card">
+          <div class="hof-kpi-label">총 누적 레이스</div>
+          <div class="hof-kpi-val" id="hofTotalRaces">0회</div>
+        </div>
+        <div class="hof-kpi-card">
+          <div class="hof-kpi-label">누적 커피 잔수</div>
+          <div class="hof-kpi-val" id="hofTotalCups">0잔</div>
+        </div>
+        <div class="hof-kpi-card gold">
+          <div class="hof-kpi-label">누적 예상 커피 결제액</div>
+          <div class="hof-kpi-val" id="hofTotalSpent">0원</div>
+        </div>
+      </div>
+
+      <!-- Dual Ranking Columns -->
+      <div class="hof-columns">
+        <div class="hof-col-card">
+          <div class="hof-col-title">☕️ 사내 커피 기부천사 (결제왕 TOP)</div>
+          <div id="hofPayerList" class="hof-list"></div>
+        </div>
+        <div class="hof-col-card">
+          <div class="hof-col-title">👑 칼퇴 레이싱 에이스 (다승왕 TOP)</div>
+          <div id="hofWinnerList" class="hof-list"></div>
+        </div>
+      </div>
+
+      <!-- Recent History -->
+      <div class="hof-history-card">
+        <div class="hof-col-title">📜 최근 경기 히스토리 (최근 20전)</div>
+        <div id="hofHistoryList" class="hof-history-list"></div>
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: space-between;">
+        <button id="clearHallOfFameBtn" class="btn-action danger" style="padding: 8px 14px; font-size: 12px;">
+          🗑️ 전적 기록 초기화
+        </button>
+        <button id="closeHallOfFameBtn" class="btn-primary" style="padding: 10px 28px;">
+          닫기
+        </button>
+      </div>
     </div>
   </div>
 
@@ -486,16 +632,17 @@
 
   <!-- Help / Guide Modal -->
   <div id="helpModal" class="modal-overlay">
-    <div class="modal-container" style="max-width: 520px;">
+    <div class="modal-container" style="max-width: 560px;">
       <div class="result-header">
-        <div class="result-title">📖 오피스 더비 가이드</div>
-        <div class="result-subtitle">회사 사람들과 재미있게 커피 내기하는 방법</div>
+        <div class="result-title">📖 오피스 더비 v2.0 완벽 가이드</div>
+        <div class="result-subtitle">회사 동료들과 가장 공정하고 박진감 넘치게 커피 내기하는 법</div>
       </div>
-      <div style="font-size: 14px; line-height: 1.7; color: var(--text-primary); display: flex; flex-direction: column; gap: 12px;">
-        <p>1. <strong>팀원 등록:</strong> 쉼표(,)나 줄바꿈으로 팀원 이름을 복사해 붙여넣으면 1초 만에 등록됩니다.</p>
-        <p>2. <strong>벌칙 설정:</strong> 꼴찌 1명 몰빵, 하위 2명 뿜빠이, 1등 제외 전원 쏘기 등 원하는 룰을 선택하세요.</p>
-        <p>3. <strong>박진감 넘치는 경기:</strong> 경기 중 카페인 부스터, 칼퇴 스퍼트 등 돌발 이벤트가 발생하여 끝까지 결과를 알 수 없습니다.</p>
-        <p>4. <strong>결과 공유:</strong> 경기가 끝나면 <strong>[슬랙/카톡 결과 복사]</strong> 버튼을 눌러 팀 메신저에 바로 공지하세요!</p>
+      <div style="font-size: 13.5px; line-height: 1.7; color: var(--text-primary); display: flex; flex-direction: column; gap: 10px;">
+        <p>1. <strong>팀원 & 희망 음료 등록:</strong> 이름을 추가하고 각 참가자 카드의 <code>☕️ 음료</code> 버튼을 눌러 아아, 라떼, 바닐라라떼 등 본인이 마실 음료를 미리 지정할 수 있습니다.</p>
+        <p>2. <strong>공정 추첨 vs 350pt 능력치전:</strong> <code>⚖️ 공정 추첨</code>은 모든 말의 물리 스탯이 100% 동일하며, <code>🔥 350pt 능력치전</code>은 마구간에서 고른 말의 5대 스탯이 실제 경기에 반영됩니다.</p>
+        <p>3. <strong>8종 오피스 아이템 & 기상 변화:</strong> 🚀부스터, 🍌바나나, 🛡️쉴드, ⚡️번개, 🎯미사일, 🧲자석에 더해 <strong>☕️더블 에스프레소(체력회복+각성)</strong>와 <strong>📋긴급 결재서류(앞 주자 감속)</strong>가 승부를 뒤집습니다!</p>
+        <p>4. <strong>실시간 꼴찌 밀착 캠 & 시드 검증:</strong> 경기 중 <code>💀 꼴찌 캠</code>을 누르면 커피 결제가 걸린 최하위권 탈출 혈투를 집중 중계합니다. 모든 경기는 고유 <strong>6자리 시드 코드</strong>로 결과를 100% 재현/검증할 수 있습니다.</p>
+        <p>5. <strong>영수증 PNG 발급 & 명예의 전당:</strong> 경기 후 감열지 영수증을 <strong>PNG 이미지로 저장</strong>하거나 슬랙/카톡에 공유하세요. 누적 결제왕은 <code>🏆 명예의 전당</code>에 자동 기록됩니다!</p>
       </div>
       <button id="closeHelpBtn" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">확인 완료</button>
     </div>

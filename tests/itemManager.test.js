@@ -10,10 +10,9 @@ import { ITEM_TYPES } from '../js/presets.js';
 describe('ItemManager', () => {
   it('createItemBoxes: 4개 체크포인트(20%, 40%, 60%, 80%)에 각 레인별 상자를 생성해야 한다', () => {
     const boxes = ItemManager.createItemBoxes(3, 1000);
-    // 4 checkpoints * 3 lanes = 12 boxes
     assert.equal(boxes.length, 12);
-    assert.equal(boxes[0].distance, 200); // 20% of 1000
-    assert.equal(boxes[3].distance, 400); // 40% of 1000
+    assert.equal(boxes[0].distance, 200);
+    assert.equal(boxes[3].distance, 400);
   });
 
   it('checkItemBoxCollisions: 말이 박스 위치에 도달하면 박스가 수집되고 아이템을 획득해야 한다', () => {
@@ -43,7 +42,6 @@ describe('ItemManager', () => {
     const obstacles = [];
     const events = [];
 
-    // 2위 추격자가 바나나 투척
     ItemManager.executeItem({
       horse: horses[1],
       item: ITEM_TYPES.BANANA,
@@ -57,8 +55,8 @@ describe('ItemManager', () => {
 
     assert.equal(obstacles.length, 1);
     assert.equal(obstacles[0].type, 'banana');
-    assert.equal(obstacles[0].lane, 0); // 1위 선두의 레인(0) 전방에 매설!
-    assert.ok(obstacles[0].distance > 400); // 선두 앞쪽에 설치
+    assert.equal(obstacles[0].lane, 0);
+    assert.ok(obstacles[0].distance > 400);
   });
 
   it('useItem (Banana): 1위 선두 주자가 바나나를 쓰면 앞선 사람이 없으므로 후속 주자에게 영향이 가지 않아야 한다', () => {
@@ -68,7 +66,6 @@ describe('ItemManager', () => {
     ];
     const obstacles = [];
 
-    // 1위 선두가 바나나 사용 시 (앞선 순위가 없음)
     ItemManager.executeItem({
       horse: horses[0],
       item: ITEM_TYPES.BANANA,
@@ -80,7 +77,7 @@ describe('ItemManager', () => {
       onEvent: () => {}
     });
 
-    assert.equal(obstacles.length, 0); // 후속 주자에게는 영향 없음!
+    assert.equal(obstacles.length, 0);
   });
 
   it('checkObstacleCollisions (Shield Block): 쉴드를 켠 말이 바나나를 밟으면 쉴드가 깨지고 미끄러지지 않아야 한다', () => {
@@ -106,10 +103,10 @@ describe('ItemManager', () => {
       (type) => { if (type === 'shieldBlock') shieldBlocked = true; }
     );
 
-    assert.equal(obstacles.length, 0); // 바나나 소모
-    assert.equal(horse.shieldActive, false); // 쉴드 소모
-    assert.equal(shieldBlocked, true); // 쉴드 방어 이벤트 발생
-    assert.equal(slipTriggered, false); // 미끄러짐 방어 성공
+    assert.equal(obstacles.length, 0);
+    assert.equal(horse.shieldActive, false);
+    assert.equal(shieldBlocked, true);
+    assert.equal(slipTriggered, false);
   });
 
   it('useItem (Lightning): 번개 발동 시 자신보다 앞선 선두 말들을 감전시켜야 한다', () => {
@@ -123,20 +120,61 @@ describe('ItemManager', () => {
     const shieldBlocks = [];
 
     ItemManager.executeItem({
-      horse: horses[2], // 3등 말이 번개 사용
+      horse: horses[2],
       item: ITEM_TYPES.LIGHTNING,
       horses,
       totalDistance: 1000,
       obstacles: [],
       projectiles: [],
-      triggerEvent: (h, state) => slips.push(h.name),
+      triggerEvent: (h) => slips.push(h.name),
       onEvent: (type, h) => {
         if (type === 'shieldBlock') shieldBlocks.push(h.name);
       }
     });
 
-    assert.deepEqual(slips, ['1등말']); // 1등말 감전 피격
-    assert.deepEqual(shieldBlocks, ['2등말']); // 2등말은 쉴드로 방어
-    assert.equal(horses[1].shieldActive, false); // 2등말 쉴드 깨짐
+    assert.deepEqual(slips, ['1등말']);
+    assert.deepEqual(shieldBlocks, ['2등말']);
+    assert.equal(horses[1].shieldActive, false);
+  });
+
+  it('useItem (Espresso): 스태미나를 즉시 회복하고 가속 부스트를 발동해야 한다', () => {
+    const horse = { id: 1, name: '피로마', stamina: 20, maxStamina: 100, rank: 2, finished: false };
+    let boosted = false;
+
+    ItemManager.executeItem({
+      horse,
+      item: ITEM_TYPES.ESPRESSO,
+      horses: [horse],
+      totalDistance: 1000,
+      obstacles: [],
+      projectiles: [],
+      triggerEvent: (h, state) => { if (state === 'boost') boosted = true; },
+      onEvent: () => {}
+    });
+
+    assert.equal(horse.stamina, 70);
+    assert.equal(boosted, true);
+  });
+
+  it('useItem (Approval): 바로 앞 경쟁자를 감속시키고 본인은 가속해야 한다', () => {
+    const horses = [
+      { id: 1, name: '선두', lane: 0, distance: 500, rank: 1, shieldActive: false, finished: false },
+      { id: 2, name: '후발', lane: 1, distance: 440, rank: 2, shieldActive: false, finished: false }
+    ];
+    const states = {};
+
+    ItemManager.executeItem({
+      horse: horses[1],
+      item: ITEM_TYPES.APPROVAL,
+      horses,
+      totalDistance: 1000,
+      obstacles: [],
+      projectiles: [],
+      triggerEvent: (h, state) => { states[h.name] = state; },
+      onEvent: () => {}
+    });
+
+    assert.equal(states['후발'], 'boost');
+    assert.equal(states['선두'], 'slip');
   });
 });

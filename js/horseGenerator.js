@@ -12,6 +12,7 @@
  */
 
 import { HORSE_COLORS, AI_STRATEGIES } from './presets.js';
+import { aiEngine } from './aiEngine.js';
 
 export const TOTAL_STAT_BUDGET = 350;
 export const MIN_STAT_VALUE = 50;
@@ -134,20 +135,35 @@ export class HorseGenerator {
   }
 
   /**
-   * 온디바이스 AI 또는 로컬 생성기로 유니크한 밸런스 경주마 1두 생성
+   * 온디바이스 AI(Gemini Nano / WebGPU LLM / NLG)로 유니크한 밸런스 경주마 1두 생성
    */
   static async generateAIHorse(customOptions = {}) {
     const archetype = customOptions.archetype || HORSE_ARCHETYPES[Math.floor(Math.random() * HORSE_ARCHETYPES.length)];
     const stats = this.generateBalancedStats(archetype.id);
 
-    const prefix = HORSE_NAME_PREFIXES[Math.floor(Math.random() * HORSE_NAME_PREFIXES.length)];
-    const suffix = HORSE_NAME_SUFFIXES[Math.floor(Math.random() * HORSE_NAME_SUFFIXES.length)];
-    const horseName = customOptions.name || `${prefix} ${suffix}`;
-    const lore = customOptions.lore || HORSE_LORES[Math.floor(Math.random() * HORSE_LORES.length)];
-
     const color = customOptions.color || HORSE_COLORS[Math.floor(Math.random() * HORSE_COLORS.length)];
     const stratId = customOptions.strategyId || archetype.defaultStrategy;
     const strategy = AI_STRATEGIES.find(s => s.id === stratId) || AI_STRATEGIES[0];
+
+    let horseName = customOptions.name;
+    let lore = customOptions.lore;
+
+    if (!horseName || !lore) {
+      try {
+        const persona = await aiEngine.generateHorsePersona(archetype, strategy, stats);
+        if (!horseName && persona?.name) horseName = persona.name;
+        if (!lore && persona?.lore) lore = persona.lore;
+      } catch (_) {}
+    }
+
+    if (!horseName) {
+      const prefix = HORSE_NAME_PREFIXES[Math.floor(Math.random() * HORSE_NAME_PREFIXES.length)];
+      const suffix = HORSE_NAME_SUFFIXES[Math.floor(Math.random() * HORSE_NAME_SUFFIXES.length)];
+      horseName = `${prefix} ${suffix}`;
+    }
+    if (!lore) {
+      lore = HORSE_LORES[Math.floor(Math.random() * HORSE_LORES.length)];
+    }
 
     return {
       id: `horse_${Date.now()}_${Math.floor(Math.random() * 10000)}`,

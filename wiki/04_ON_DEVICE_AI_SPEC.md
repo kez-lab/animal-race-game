@@ -1,9 +1,10 @@
 # 04. 온디바이스 AI 시스템 명세 (On-Device AI Specification)
 
-## 1. 개요
-오피스 더비는 외부 클라우드 LLM API 호출 없이, 브라우저 로컬에서 작동하는 **온디바이스 AI 아키텍처**를 채택하고 있습니다.
-- **Tier 1 (Built-in LLM)**: Chrome Canary/Dev/Beta의 `window.ai.languageModel` (Gemini Nano)
-- **Tier 2 (Fallback Generator)**: 인브라우저 휴리스틱 & 조합 신경망 생성기 (`js/aiEngine.js`)
+## 1. 개요 (3-Tier On-Device AI Architecture)
+오피스 더비는 외부 클라우드 LLM API 호출 없이, 브라우저 로컬에서 작동하는 **3단계 온디바이스 AI 아키텍처**를 채택하고 있습니다.
+- **Tier 1 (Chrome Built-in AI - Gemini Nano)**: 최신 표준 `globalThis.LanguageModel` Prompt API (`availability()`, `create({ initialPrompts, monitor })`, 태스크별 `baseSession.clone()` 및 `destroy()`, JSON Schema `responseConstraint`, 실시간 토큰 스트리밍 `promptStreaming()`) 및 레거시 `self.ai.languageModel` 호환.
+- **Tier 2 (In-Browser WebGPU / WASM LLM)**: Chrome 플래그 미설정 환경이나 타 브라우저(Safari/Edge/Firefox)에서 상단 헤더의 **`🧠 온디바이스 AI`** 버튼 클릭 시 `@huggingface/transformers` (Transformers.js v3)를 통해 `onnx-community/Qwen2.5-0.5B-Instruct` (INT4 양자화) 신경망을 브라우저 메모리에 직접 로드.
+- **Tier 3 (Context-Aware Combinatorial NLG)**: 오프라인 및 0ms 즉시 응답을 위한 직급·전략·경기 텔레메트리(`overtakes`, `hitsTaken`, `worstRank`, `finishTime`, `photoFinishInfo`) 인지형 한국어 생성 엔진.
 
 ---
 

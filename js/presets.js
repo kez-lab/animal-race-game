@@ -24,7 +24,7 @@ export const OFFICE_NICKNAMES = [
   '에스프레소샷', '영양제과다', '모니터3대', '마우스광클', '출근길러너'
 ];
 
-// 보편적인 레이싱 아이템 정의 (아이템전 모드용)
+// 레이싱 아이템 8종 정의 (아이템전 모드용)
 export const ITEM_TYPES = {
   BOOSTER: {
     id: 'booster',
@@ -38,7 +38,7 @@ export const ITEM_TYPES = {
     id: 'banana',
     name: '바나나',
     icon: '🍌',
-    desc: '트랙에 바나나를 투척하여 뒤따르는 말을 미끄러뜨림!',
+    desc: '트랙 전방에 바나나를 투척하여 선두권 말을 미끄러뜨림!',
     stunDuration: 1.4
   },
   SHIELD: {
@@ -69,6 +69,68 @@ export const ITEM_TYPES = {
     desc: '1등 말의 뒤를 향해 강하게 끌어당겨지며 급가속!',
     duration: 2.5,
     speedMultiplier: 1.45
+  },
+  ESPRESSO: {
+    id: 'espresso',
+    name: '더블 에스프레소',
+    icon: '☕️',
+    desc: '스태미나 50% 즉시 충전 및 고농축 카페인 각성 질주!',
+    duration: 2.0,
+    speedMultiplier: 1.42,
+    staminaRestore: 50
+  },
+  APPROVAL: {
+    id: 'approval',
+    name: '긴급 결재서류',
+    icon: '📋',
+    desc: '바로 앞 경쟁자에게 결재 폭탄을 넘겨 감속시키고 본인은 가속!',
+    stunDuration: 1.5,
+    duration: 1.6,
+    speedMultiplier: 1.22
+  }
+};
+
+// 트랙 기상 및 시간대 컨디션 (Weather & Track Conditions)
+export const WEATHER_TYPES = {
+  sunny: {
+    id: 'sunny',
+    name: '맑음 (양호)',
+    icon: '☀️',
+    desc: '쾌적한 표준 잔디 노면',
+    staminaDrainMult: 1.0,
+    slipDurationMult: 1.0,
+    projectileSpeedMult: 1.0,
+    spurtChanceBonus: 0
+  },
+  rain: {
+    id: 'rain',
+    name: '폭우 (수중전)',
+    icon: '🌧️',
+    desc: '미끄러운 진흙 노면! 체력 소모 +15%, 슬립 시간 증가',
+    staminaDrainMult: 1.15,
+    slipDurationMult: 1.2,
+    projectileSpeedMult: 0.95,
+    spurtChanceBonus: 0.05
+  },
+  wind: {
+    id: 'wind',
+    name: '돌풍 (강풍)',
+    icon: '🍃',
+    desc: '거센 순풍과 역풍! 미사일 탄속 +25%, 속도 진폭 증가',
+    staminaDrainMult: 1.05,
+    slipDurationMult: 1.0,
+    projectileSpeedMult: 1.25,
+    spurtChanceBonus: 0.1
+  },
+  night: {
+    id: 'night',
+    name: '야근 나이트',
+    icon: '🌙',
+    desc: '화려한 네온 구장! 막판 칼퇴 스퍼트 발동률 대폭 상승',
+    staminaDrainMult: 0.95,
+    slipDurationMult: 1.0,
+    projectileSpeedMult: 1.1,
+    spurtChanceBonus: 0.4
   }
 };
 
@@ -119,12 +181,14 @@ export const AI_STRATEGIES = [
 export const DEFAULT_PRESETS = [];
 
 export const COFFEE_MENUS = [
-  { name: '☕️ 갓 내린 아이스 아메리카노', price: '4,500원', note: '가장 무난하고 빠른 선택!' },
-  { name: '🥛 고소한 아이스 카페라떼', price: '5,000원', note: '부드러운 우유의 풍미' },
-  { name: '🍯 달달한 바닐라빈 라떼', price: '5,800원', note: '오후 당충전 필수템' },
-  { name: '🍫 진한 자바칩 프라푸치노', price: '6,500원', note: '결제자의 눈물 한 스푼' },
-  { name: '🍋 상큼한 자몽 허니 블랙티', price: '5,700원', note: '카페인 취약자를 위한 음료' },
-  { name: '🍵 제주 말차 크림 프라푸치노', price: '6,300원', note: '오늘 지갑 제대로 털리는 날!' }
+  { id: 'americano', shortName: '아아', name: '☕️ 갓 내린 아이스 아메리카노', price: '4,500원', numericPrice: 4500, note: '가장 무난하고 빠른 국민 메뉴!' },
+  { id: 'latte', shortName: '카페라떼', name: '🥛 고소한 아이스 카페라떼', price: '5,000원', numericPrice: 5000, note: '부드러운 우유와 에스프레소의 조화' },
+  { id: 'vanilla', shortName: '바닐라라떼', name: '🍯 달달한 바닐라빈 라떼', price: '5,800원', numericPrice: 5800, note: '오후 당충전 필수 시그니처' },
+  { id: 'javachip', shortName: '자바칩프라페', name: '🍫 진한 자바칩 프라푸치노', price: '6,500원', numericPrice: 6500, note: '결제자의 눈물 한 스푼 추가' },
+  { id: 'grapefruit', shortName: '자허블', name: '🍋 상큼한 자몽 허니 블랙티', price: '5,700원', numericPrice: 5700, note: '카페인 취약자를 위한 고급 티' },
+  { id: 'matcha', shortName: '말차프라페', name: '🍵 제주 말차 크림 프라푸치노', price: '6,300원', numericPrice: 6300, note: '오늘 지갑 제대로 털리는 날!' },
+  { id: 'einspanner', shortName: '아인슈페너', name: '☁️ 쫀득 크림 아인슈페너', price: '6,000원', numericPrice: 6000, note: '달콤 쌉싸름한 크림 라떼' },
+  { id: 'peach', shortName: '아샷추', name: '🍑 복숭아 아이스티 샷추가', price: '4,800원', numericPrice: 4800, note: '은근히 중독성 강한 판교 특식' }
 ];
 
 export const COMMENTARY_MESSAGES = {
@@ -149,20 +213,20 @@ export const COMMENTARY_MESSAGES = {
     '🔥 중위권 말들이 엎치락뒤치락 한 치 앞을 알 수 없습니다!'
   ],
   lastSpurt: [
-    '🏁 결승선까지 남은 거리 200m! 전원 마지막 혼신의 스퍼트!',
+    '🏁 결승선까지 남은 거리 25%! 전원 마지막 혼신의 칼퇴 스퍼트!',
     '💥 이제 승부의 순간! 누가 지갑을 지키고 누가 커피를 살 것인가?!',
-    '🚨 결승선이 코앞입니다! 숨 막히는 막판 스퍼트!'
+    '🚨 결승선이 코앞입니다! 숨 막히는 막판 스퍼트 구간 진입!'
   ],
   photoFinish: [
-    '📸 초접전! 육안으로 구분이 어렵습니다! 결승선 통과!',
-    '🎯 결승선 돌파! 판독에 들어갑니다!'
+    '📸 초접전 포토 피니시!! 육안으로 구분이 어렵습니다! 정밀 판독 돌입!',
+    '🎯 간발의 차이로 결승선 돌파! 0.01초 단위로 운명이 갈렸습니다!'
   ]
 };
 
 export const FUNNY_RECEIPT_NOTES = [
-  '* 본 영수증은 법적 효력이... 있을지도 모릅니다.',
-  '* 법인카드 결제 시 인사팀 경고 주의 (개인카드 권장)',
-  '* 샷 추가 및 디저트 주문은 당첨자의 표정을 보고 결정하세요.',
-  '* 승패에 승복하고 쿨하게 결제하는 멋진 직장인이 됩시다.',
-  '* 다음 판 복수전(Rematch) 신청은 10분 뒤에 가능합니다.'
+  '* 본 영수증은 사내 평화를 위해 법적 효력에 준하는 강제성을 갖습니다.',
+  '* 법인카드 결제 시 인사팀 경고 주의 (개인카드/페이 결제 권장)',
+  '* 샷 추가 및 휘핑크림 추가는 당첨자의 표정을 보고 결정하세요.',
+  '* 승패에 승복하고 쿨하게 결제하는 멋진 동료가 됩시다.',
+  '* 억울할 경우 영수증 하단의 시드(Seed) 코드로 결과 재검증이 가능합니다.'
 ];

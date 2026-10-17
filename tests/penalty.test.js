@@ -1,17 +1,23 @@
 /**
- * tests/penalty.test.js - 벌칙 산정 및 가격 계산 단위 테스트
+ * tests/penalty.test.js - 벌칙 산정, 개별 음료 정산 및 경기 MVP 산출 단위 테스트
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { calculatePenaltyHorses, calculateEstimatedPrice, PENALTY_RULES } from '../js/penalty.js';
+import {
+  calculatePenaltyHorses,
+  calculateEstimatedPrice,
+  calculateDetailedOrder,
+  computeRaceMVPs,
+  PENALTY_RULES
+} from '../js/penalty.js';
 
 describe('PenaltyCalculator', () => {
   const mockHorses = [
-    { id: 1, name: '김팀장', rank: 1 },
-    { id: 2, name: '이과장', rank: 2 },
-    { id: 3, name: '박대리', rank: 3 },
-    { id: 4, name: '최사원', rank: 4 }
+    { id: 1, name: '김팀장', rank: 1, worstRank: 4, overtakes: 3, finishTime: 18.2 },
+    { id: 2, name: '이과장', rank: 2, worstRank: 2, shieldsBlocked: 2, finishTime: 18.9 },
+    { id: 3, name: '박대리', rank: 3, worstRank: 3, hitsTaken: 3, finishTime: 19.5 },
+    { id: 4, name: '최사원', rank: 4, worstRank: 4, finishTime: 20.1 }
   ];
 
   it('last1 룰: 최하위 1명만 결제자로 선정되어야 한다', () => {
@@ -51,5 +57,22 @@ describe('PenaltyCalculator', () => {
     const priceInfo = calculateEstimatedPrice(4, true, customMenu);
     assert.equal(priceInfo.unitPrice, 5800);
     assert.equal(priceInfo.totalAmount, 23200);
+  });
+
+  it('calculateDetailedOrder: 참가자별 지정 음료를 집계하여 정확한 소계와 총액을 산출해야 한다', () => {
+    const customParticipants = [
+      { name: '김팀장', drinkId: 'americano' }, // 4,500
+      { name: '이과장', drinkId: 'americano' }, // 4,500
+      { name: '박대리', drinkId: 'vanilla' }    // 5,800
+    ];
+    const order = calculateDetailedOrder(customParticipants, true);
+    assert.equal(order.totalAmount, 14800);
+    assert.equal(order.items.length, 2);
+  });
+
+  it('computeRaceMVPs: 경기 텔레메트리 기반으로 역전 우승, 추월왕, 동네북, 수호신 배지를 산출해야 한다', () => {
+    const awards = computeRaceMVPs(mockHorses);
+    assert.ok(awards.length >= 2);
+    assert.ok(awards.some(a => a.title === '김팀장'));
   });
 });

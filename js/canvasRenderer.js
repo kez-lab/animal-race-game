@@ -1,6 +1,6 @@
 /**
  * canvasRenderer.js - 60FPS 고해상도 2D 캔버스 경마 렌더러
- * 미려한 잔디 트랙, 부드러운 말/기수 애니메이션, 파티클 및 카메라 추적
+ * 다중 카메라 디렉터(선두/꼴찌/전체), 날씨 이펙트(맑음/폭우/돌풍/야간), 스태미나 HUD, 전광판, 낙뢰/잔상 연출 지원
  */
 
 export class CanvasRenderer {
@@ -13,10 +13,15 @@ export class CanvasRenderer {
     this.height = 0;
     this.cameraX = 0;
     this.targetCameraX = 0;
+    this.cameraMode = 'lead'; // 'lead' | 'tail' | 'pack'
 
-    // 파티클 시스템
+    // 파티클 및 특수효과 시스템
     this.particles = [];
     this.confetti = [];
+    this.shockwaves = [];
+    this.floatingPopups = [];
+    this.lightningBolts = [];
+    this.screenFlashAlpha = 0;
 
     // 애니메이션 틱
     this.animTime = 0;
@@ -24,15 +29,16 @@ export class CanvasRenderer {
     // 트랙 레이아웃 파라미터
     this.trackPixelLength = 3200; // 가상 트랙 총 픽셀 길이
     this.laneHeight = 64;
-    this.trackTop = 90;
+    this.trackTop = 96;
 
     this.initResize();
   }
 
   initResize() {
     const handleResize = () => {
+      if (!this.canvas || !this.canvas.parentElement) return;
       const rect = this.canvas.parentElement.getBoundingClientRect();
-      this.width = rect.width;
+      this.width = rect.width || 800;
       this.height = Math.max(420, rect.height || 460);
 
       this.canvas.width = this.width * this.dpr;
@@ -40,29 +46,36 @@ export class CanvasRenderer {
       this.canvas.style.width = `${this.width}px`;
       this.canvas.style.height = `${this.height}px`;
 
-      this.ctx.scale(this.dpr, this.dpr);
+      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     };
 
     window.addEventListener('resize', handleResize);
     handleResize();
   }
 
+  setCameraMode(mode) {
+    if (['lead', 'tail', 'pack'].includes(mode)) {
+      this.cameraMode = mode;
+    }
+  }
+
   setHorseCount(count) {
-    // 말 수에 따라 레인 높이 및 캔버스 높이 조절
     const minHeight = 420;
     const requiredHeight = this.trackTop + (count * this.laneHeight) + 60;
     const targetHeight = Math.max(minHeight, requiredHeight);
 
-    this.canvas.parentElement.style.minHeight = `${targetHeight}px`;
-    const rect = this.canvas.parentElement.getBoundingClientRect();
-    this.width = rect.width;
-    this.height = targetHeight;
+    if (this.canvas && this.canvas.parentElement) {
+      this.canvas.parentElement.style.minHeight = `${targetHeight}px`;
+      const rect = this.canvas.parentElement.getBoundingClientRect();
+      this.width = rect.width || 800;
+      this.height = targetHeight;
 
-    this.canvas.width = this.width * this.dpr;
-    this.canvas.height = this.height * this.dpr;
-    this.canvas.style.width = `${this.width}px`;
-    this.canvas.style.height = `${this.height}px`;
-    this.ctx.scale(this.dpr, this.dpr);
+      this.canvas.width = this.width * this.dpr;
+      this.canvas.height = this.height * this.dpr;
+      this.canvas.style.width = `${this.width}px`;
+      this.canvas.style.height = `${this.height}px`;
+      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    }
   }
 
   reset() {
@@ -72,6 +85,8 @@ export class CanvasRenderer {
     this.confetti = [];
     this.shockwaves = [];
     this.floatingPopups = [];
+    this.lightningBolts = [];
+    this.screenFlashAlpha = 0;
     this.animTime = 0;
   }
 
@@ -82,10 +97,13 @@ export class CanvasRenderer {
     const horses = engine.horses;
     if (!horses || horses.length === 0) return;
 
-    // 카메라 추적: 선두와 후미의 중간 지점을 부드럽게 추적하거나 선두 우선 추적
     const startX = 140;
     const finishX = this.trackPixelLength - 220;
     const trackWidthSpan = finishX - startX;
+
+    // 카메라 타겟 계산 (선두 캠 / 꼴찌 캠 / 전체 팩 캠)
+    const activeHorses = horses.filter(h => !h.finished);
+    const pool = activeHorses.length > 0 ? activeHorses : horses;
 
     let maxProgress = 0;
     let minProgress = 1;
@@ -94,28 +112,42 @@ export class CanvasRenderer {
       if (h.progress < minProgress) minProgress = h.progress;
     });
 
-    const leaderWorldX = startX + maxProgress * trackWidthSpan;
-    // 카메라가 선두를 화면 65% 위치에 두도록 설정
-    this.targetCameraX = Math.max(0, leaderWorldX - this.width * 0.65);
-    // 트랙 끝을 벗어나지 않도록
+    let activeMinProgress = 1;
+    pool.forEach(h => {
+      if (h.progress < activeMinProgress) activeMinProgress = h.progress;
+    });
+
+    if (this.cameraMode === 'tail') {
+      const tailWorldX = startX + activeMinProgress * trackWidthSpan;
+      this.targetCameraX = Math.max(0, tailWorldX - this.width * 0.42);
+    } else if (this.cameraMode === 'pack') {
+      const midProgress = (maxProgress + activeMinProgress) * 0.5;
+      const midWorldX = startX + midProgress * trackWidthSpan;
+      this.targetCameraX = Math.max(0, midWorldX - this.width * 0.5);
+    } else {
+      const leaderWorldX = startX + maxProgress * trackWidthSpan;
+      this.targetCameraX = Math.max(0, leaderWorldX - this.width * 0.65);
+    }
+
     const maxCameraX = Math.max(0, this.trackPixelLength - this.width + 40);
     this.targetCameraX = Math.min(maxCameraX, this.targetCameraX);
 
     // 부드러운 카메라 이동 (Lerp)
-    this.cameraX += (this.targetCameraX - this.cameraX) * Math.min(1, dt * 6);
+    this.cameraX += (this.targetCameraX - this.cameraX) * Math.min(1, dt * 6.5);
+
+    const weather = engine.weather || 'sunny';
 
     // 캔버스 클리어
     this.ctx.clearRect(0, 0, this.width, this.height);
 
     this.ctx.save();
-    // 카메라 이동 적용
     this.ctx.translate(-this.cameraX, 0);
 
-    // 1. 관중석 & 배경 렌더링
-    this.renderBackground();
+    // 1. 관중석 & 배경 & 전광판 렌더링
+    this.renderBackground(weather, engine);
 
     // 2. 트랙 및 레인 렌더링
-    this.renderTrack(horses.length, startX, finishX);
+    this.renderTrack(horses.length, startX, finishX, weather);
 
     // 3. 거리 마커 및 게이트/결승선 렌더링
     this.renderMarkers(engine.totalDistance, startX, finishX, horses.length);
@@ -127,7 +159,7 @@ export class CanvasRenderer {
       this.renderProjectiles(engine.projectiles, startX, trackWidthSpan, engine.totalDistance);
     }
 
-    // 4. 파티클 렌더링 (말 뒤 먼지 등)
+    // 4. 파티클 및 번개 낙뢰 렌더링
     this.renderParticles();
 
     // 5. 말 및 기수 렌더링 (레인 순서대로)
@@ -135,9 +167,9 @@ export class CanvasRenderer {
       const horseX = startX + horse.progress * trackWidthSpan;
       const horseY = this.trackTop + index * this.laneHeight + this.laneHeight * 0.55;
 
-      // 달릴 때 먼지 생성
+      // 달릴 때 먼지/물보라 생성
       if (engine.isRunning && !horse.finished && Math.random() < 0.35) {
-        this.addDustParticle(horseX - 25, horseY + 12, horse.color.body);
+        this.addDustParticle(horseX - 25, horseY + 12, weather);
       }
       // 부스터 시 불꽃/스파크 생성
       if (horse.state === 'boost' && engine.isRunning && !horse.finished) {
@@ -151,18 +183,46 @@ export class CanvasRenderer {
     this.renderConfetti();
 
     this.ctx.restore();
+
+    // 7. 뷰포트 고정 오버레이 (비/바람 기상 이펙트, 라스트 스퍼트 집중선, 카메라 모드 HUD, 번개 플래시)
+    this.renderViewportOverlays(engine, weather);
   }
 
-  renderBackground() {
-    // 상단 하늘 / 스타디움 벽
+  renderBackground(weather, engine) {
+    // 상단 하늘 / 스타디움 벽 (날씨별 테마)
     const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.trackTop);
-    skyGrad.addColorStop(0, '#1A202C');
-    skyGrad.addColorStop(1, '#2D3748');
+    if (weather === 'night') {
+      skyGrad.addColorStop(0, '#090D16');
+      skyGrad.addColorStop(1, '#1E1B4B');
+    } else if (weather === 'rain') {
+      skyGrad.addColorStop(0, '#0F172A');
+      skyGrad.addColorStop(1, '#1E293B');
+    } else {
+      skyGrad.addColorStop(0, '#1A202C');
+      skyGrad.addColorStop(1, '#2D3748');
+    }
     this.ctx.fillStyle = skyGrad;
     this.ctx.fillRect(this.cameraX, 0, this.width, this.trackTop);
 
+    // 야간 스타디움 서치라이트 조명 기둥
+    if (weather === 'night') {
+      for (let lx = 250; lx < this.trackPixelLength; lx += 550) {
+        const coneGrad = this.ctx.createLinearGradient(lx, 0, lx, this.trackTop + 180);
+        coneGrad.addColorStop(0, 'rgba(56, 189, 248, 0.22)');
+        coneGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        this.ctx.fillStyle = coneGrad;
+        this.ctx.beginPath();
+        this.ctx.moveTo(lx - 15, 0);
+        this.ctx.lineTo(lx + 15, 0);
+        this.ctx.lineTo(lx + 110, this.trackTop + 180);
+        this.ctx.lineTo(lx - 110, this.trackTop + 180);
+        this.ctx.closePath();
+        this.ctx.fill();
+      }
+    }
+
     // 관중석 펜스 & 관중 실루엣
-    this.ctx.fillStyle = '#4A5568';
+    this.ctx.fillStyle = weather === 'night' ? '#312E81' : '#4A5568';
     this.ctx.fillRect(0, this.trackTop - 24, this.trackPixelLength, 24);
 
     // 환호하는 관중 도트 애니메이션
@@ -170,6 +230,7 @@ export class CanvasRenderer {
     const crowdCount = Math.ceil(this.trackPixelLength / crowdSpacing);
     for (let i = 0; i < crowdCount; i++) {
       const cx = i * crowdSpacing;
+      if (cx < this.cameraX - 40 || cx > this.cameraX + this.width + 40) continue;
       const jump = Math.sin(this.animTime * 6 + i * 1.5) > 0.4 ? -4 : 0;
       const color = (i % 3 === 0) ? '#CBD5E0' : ((i % 3 === 1) ? '#A0AEC0' : '#718096');
 
@@ -182,56 +243,106 @@ export class CanvasRenderer {
     // 경기장 만국기 플래그
     for (let i = 0; i < crowdCount; i += 4) {
       const fx = i * crowdSpacing;
+      if (fx < this.cameraX - 40 || fx > this.cameraX + this.width + 40) continue;
       const flagColors = ['#E53E3E', '#3182CE', '#D69E2E', '#38A169', '#805AD5'];
+      const windFlutter = weather === 'wind' ? Math.sin(this.animTime * 18 + i) * 3 : 0;
       this.ctx.fillStyle = flagColors[(i / 4) % flagColors.length];
       this.ctx.beginPath();
       this.ctx.moveTo(fx, this.trackTop - 45);
-      this.ctx.lineTo(fx + 12, this.trackTop - 38);
+      this.ctx.lineTo(fx + 12 + windFlutter, this.trackTop - 38);
       this.ctx.lineTo(fx, this.trackTop - 31);
       this.ctx.fill();
     }
+
+    // 스타디움 대형 전광판 (800px 간격으로 배치)
+    const leadName = engine.leadHorse ? engine.leadHorse.name : '-';
+    const tailName = engine.tailHorse ? engine.tailHorse.name : '-';
+    for (let bx = 420; bx < this.trackPixelLength - 300; bx += 750) {
+      if (bx < this.cameraX - 220 || bx > this.cameraX + this.width + 220) continue;
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      this.ctx.strokeStyle = weather === 'night' ? '#38BDF8' : '#F59E0B';
+      this.ctx.lineWidth = 1.5;
+      const bw = 210;
+      const bh = 28;
+      this.ctx.beginPath();
+      this.ctx.roundRect ? this.ctx.roundRect(bx - bw / 2, 10, bw, bh, 6) : this.ctx.fillRect(bx - bw / 2, 10, bw, bh);
+      this.ctx.fill();
+      this.ctx.stroke();
+
+      this.ctx.font = 'bold 10.5px Pretendard, sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillStyle = '#F8FAFC';
+      this.ctx.fillText(`👑 1위: ${leadName}  |  ☕️ 위기: ${tailName}`, bx, 24);
+      this.ctx.restore();
+    }
   }
 
-  renderTrack(horseCount, startX, finishX) {
+  renderTrack(horseCount, startX, finishX, weather) {
     const totalTrackHeight = horseCount * this.laneHeight;
 
-    // 잔디 트랙 배경
+    // 잔디 트랙 배경 (날씨별 색감)
     const turfGrad = this.ctx.createLinearGradient(0, this.trackTop, 0, this.trackTop + totalTrackHeight);
-    turfGrad.addColorStop(0, '#22543D');
-    turfGrad.addColorStop(0.5, '#276749');
-    turfGrad.addColorStop(1, '#1C4532');
+    if (weather === 'rain') {
+      turfGrad.addColorStop(0, '#1A3636');
+      turfGrad.addColorStop(0.5, '#1F453B');
+      turfGrad.addColorStop(1, '#132A26');
+    } else if (weather === 'night') {
+      turfGrad.addColorStop(0, '#132A3E');
+      turfGrad.addColorStop(0.5, '#1A3B47');
+      turfGrad.addColorStop(1, '#0F2231');
+    } else {
+      turfGrad.addColorStop(0, '#22543D');
+      turfGrad.addColorStop(0.5, '#276749');
+      turfGrad.addColorStop(1, '#1C4532');
+    }
     this.ctx.fillStyle = turfGrad;
     this.ctx.fillRect(0, this.trackTop, this.trackPixelLength, totalTrackHeight);
 
     // 미세 잔디 줄무늬 패턴
     for (let x = 0; x < this.trackPixelLength; x += 80) {
-      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+      if (x < this.cameraX - 80 || x > this.cameraX + this.width + 80) continue;
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.028)';
       this.ctx.fillRect(x, this.trackTop, 40, totalTrackHeight);
+    }
+
+    // 레인 번호 워터마크 (출발선 부근 및 중간 트랙)
+    this.ctx.font = '900 18px Pretendard, sans-serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    for (let lane = 0; lane < horseCount; lane++) {
+      const ly = this.trackTop + lane * this.laneHeight + this.laneHeight * 0.5;
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      this.ctx.fillText(`${lane + 1}`, startX - 30, ly);
     }
 
     // 레인 구분선 (점선)
     for (let i = 0; i <= horseCount; i++) {
       const y = this.trackTop + i * this.laneHeight;
 
-      this.ctx.strokeStyle = i === 0 || i === horseCount ? '#FFFFFF' : 'rgba(255, 255, 255, 0.25)';
-      this.ctx.lineWidth = i === 0 || i === horseCount ? 3 : 1.5;
+      const isOuter = i === 0 || i === horseCount;
+      this.ctx.strokeStyle = isOuter
+        ? (weather === 'night' ? '#38BDF8' : '#FFFFFF')
+        : 'rgba(255, 255, 255, 0.25)';
+      this.ctx.lineWidth = isOuter ? 3 : 1.5;
 
-      if (i > 0 && i < horseCount) {
+      if (!isOuter) {
         this.ctx.setLineDash([12, 8]);
       } else {
         this.ctx.setLineDash([]);
       }
 
       this.ctx.beginPath();
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(this.trackPixelLength, y);
+      this.ctx.moveTo(this.cameraX, y);
+      this.ctx.lineTo(this.cameraX + this.width, y);
       this.ctx.stroke();
     }
     this.ctx.setLineDash([]);
 
     // 하단 펜스 및 바닥 그림자
-    this.ctx.fillStyle = '#1A202C';
-    this.ctx.fillRect(0, this.trackTop + totalTrackHeight, this.trackPixelLength, 40);
+    this.ctx.fillStyle = '#0F172A';
+    this.ctx.fillRect(this.cameraX, this.trackTop + totalTrackHeight, this.width, 45);
   }
 
   renderMarkers(totalDistance, startX, finishX, horseCount) {
@@ -252,7 +363,7 @@ export class CanvasRenderer {
       { ratio: 0.25, label: `${Math.round(totalDistance * 0.75)}m 남음` },
       { ratio: 0.50, label: `${Math.round(totalDistance * 0.50)}m 남음` },
       { ratio: 0.75, label: `🔥 남은거리 ${Math.round(totalDistance * 0.25)}m!` },
-      { ratio: 0.90, label: `⚡️ 라스트 100m!` }
+      { ratio: 0.90, label: `⚡️ 라스트 스퍼트!` }
     ];
 
     intervals.forEach(item => {
@@ -267,8 +378,9 @@ export class CanvasRenderer {
       this.ctx.setLineDash([]);
 
       // 표지판 배지
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      this.ctx.roundRect ? this.ctx.roundRect(mx - 45, this.trackTop - 24, 90, 20, 4) : this.ctx.fillRect(mx - 45, this.trackTop - 24, 90, 20);
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+      this.ctx.beginPath();
+      this.ctx.roundRect ? this.ctx.roundRect(mx - 48, this.trackTop - 24, 96, 20, 4) : this.ctx.fillRect(mx - 48, this.trackTop - 24, 96, 20);
       this.ctx.fill();
 
       this.ctx.fillStyle = item.ratio >= 0.75 ? '#FEFCBF' : '#E2E8F0';
@@ -290,17 +402,20 @@ export class CanvasRenderer {
     }
 
     // 결승선 아치 기둥 & 배너
-    this.ctx.fillStyle = '#D69E2E';
-    this.ctx.fillRect(finishX - 4, this.trackTop - 35, 38, 35);
-    this.ctx.fillStyle = '#1A202C';
-    this.ctx.font = 'bold 12px Pretendard, sans-serif';
-    this.ctx.fillText('FINISH', finishX + 15, this.trackTop - 14);
+    this.ctx.fillStyle = '#F59E0B';
+    this.ctx.beginPath();
+    this.ctx.roundRect ? this.ctx.roundRect(finishX - 8, this.trackTop - 36, 46, 30, 5) : this.ctx.fillRect(finishX - 8, this.trackTop - 36, 46, 30);
+    this.ctx.fill();
+    this.ctx.fillStyle = '#0F172A';
+    this.ctx.font = '900 11px Pretendard, sans-serif';
+    this.ctx.fillText('FINISH', finishX + 15, this.trackTop - 17);
   }
 
   renderItemBoxes(boxes, startX, trackWidthSpan, totalDistance) {
     boxes.forEach(box => {
       if (box.collected) return;
       const actualX = startX + (box.distance / totalDistance) * trackWidthSpan;
+      if (actualX < this.cameraX - 40 || actualX > this.cameraX + this.width + 40) return;
       const by = this.trackTop + box.lane * this.laneHeight + this.laneHeight * 0.55;
 
       const bob = Math.sin(this.animTime * 6 + box.lane) * 3;
@@ -342,6 +457,12 @@ export class CanvasRenderer {
       this.ctx.save();
       this.ctx.translate(ox, oy);
 
+      // 위험 경고 바닥 원
+      this.ctx.fillStyle = 'rgba(234, 179, 8, 0.25)';
+      this.ctx.beginPath();
+      this.ctx.arc(0, 2, 13, 0, Math.PI * 2);
+      this.ctx.fill();
+
       // 바나나 이모지 렌더링
       this.ctx.font = '16px serif';
       this.ctx.textAlign = 'center';
@@ -369,14 +490,14 @@ export class CanvasRenderer {
       this.ctx.translate(px, py);
 
       // 미사일 후방 연기 및 화염 이펙트
-      this.ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
+      this.ctx.fillStyle = 'rgba(239, 68, 68, 0.65)';
       this.ctx.beginPath();
-      this.ctx.arc(-10, 0, 7, 0, Math.PI * 2);
+      this.ctx.arc(-12, 0, 8, 0, Math.PI * 2);
       this.ctx.fill();
 
-      this.ctx.fillStyle = 'rgba(245, 158, 11, 0.8)';
+      this.ctx.fillStyle = 'rgba(245, 158, 11, 0.85)';
       this.ctx.beginPath();
-      this.ctx.arc(-6, 0, 4, 0, Math.PI * 2);
+      this.ctx.arc(-6, 0, 5, 0, Math.PI * 2);
       this.ctx.fill();
 
       // 미사일 아이콘
@@ -393,11 +514,36 @@ export class CanvasRenderer {
     this.ctx.save();
     this.ctx.translate(x, y);
 
+    // 0. 부스터 질주 시 잔상(Afterimage) 효과
+    if (horse.state === 'boost' && !horse.finished) {
+      for (let g = 1; g <= 2; g++) {
+        this.ctx.save();
+        this.ctx.translate(-g * 16, 0);
+        this.ctx.globalAlpha = 0.22 / g;
+        this.ctx.fillStyle = horse.color.body || '#F59E0B';
+        this.ctx.beginPath();
+        this.ctx.ellipse(0, 0, 20, 11, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+      }
+    }
+
     // 1. 말 그림자
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     this.ctx.beginPath();
     this.ctx.ellipse(0, 16, 26, 7, 0, 0, Math.PI * 2);
     this.ctx.fill();
+
+    // 1.5. 말 하단 미니 스태미나 게이지 바 (완주 전 표시)
+    if (!horse.finished) {
+      const stamRatio = Math.max(0, Math.min(1, (horse.stamina || 0) / (horse.maxStamina || 100)));
+      const barW = 36;
+      const barH = 3.5;
+      this.ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      this.ctx.fillRect(-barW / 2, 21, barW, barH);
+      this.ctx.fillStyle = stamRatio > 0.5 ? '#10B981' : (stamRatio > 0.22 ? '#F59E0B' : '#EF4444');
+      this.ctx.fillRect(-barW / 2, 21, barW * stamRatio, barH);
+    }
 
     // 2. 쉴드 방어막 효과
     if (horse.shieldActive) {
@@ -419,8 +565,8 @@ export class CanvasRenderer {
     // 3. 부스터 오라 효과
     if (horse.state === 'boost') {
       const auraGrad = this.ctx.createRadialGradient(0, 0, 10, 0, 0, 45);
-      auraGrad.addColorStop(0, 'rgba(237, 137, 54, 0.4)');
-      auraGrad.addColorStop(0.7, 'rgba(246, 224, 94, 0.15)');
+      auraGrad.addColorStop(0, 'rgba(237, 137, 54, 0.45)');
+      auraGrad.addColorStop(0.7, 'rgba(246, 224, 94, 0.18)');
       auraGrad.addColorStop(1, 'rgba(246, 224, 94, 0)');
       this.ctx.fillStyle = auraGrad;
       this.ctx.beginPath();
@@ -433,7 +579,7 @@ export class CanvasRenderer {
       this.ctx.rotate(horse.spinAngle);
     }
 
-    // 3. 말 달리기 애니메이션 각도 계산 (다그닥 움직임)
+    // 말 달리기 애니메이션 각도 계산 (다그닥 움직임)
     const gallopSpeed = engine.isRunning && !horse.finished ? (horse.speed / 15) : 0;
     const gallopPhase = this.animTime * 14 * (gallopSpeed > 0 ? gallopSpeed : 1) + horse.lane;
     const bodyBob = Math.sin(gallopPhase * 2) * (gallopSpeed > 0 ? 3 : 0);
@@ -442,15 +588,14 @@ export class CanvasRenderer {
     this.ctx.translate(0, bodyBob);
     this.ctx.rotate(bodyTilt);
 
-    // 말 몸통 색상
-    const horseColor = horse.color.body || '#E53E3E';
-    const silkColor = horse.color.silk || '#FFFFFF';
+    const horseColor = horse.color?.body || '#E53E3E';
+    const silkColor = horse.color?.silk || '#FFFFFF';
 
-    // 4. 뒷다리 2개
+    // 뒷다리 2개
     this.renderLeg(-14, 8, Math.sin(gallopPhase) * 0.8 + 0.3, horseColor);
     this.renderLeg(-8, 8, Math.sin(gallopPhase + 0.5) * 0.8 + 0.3, horseColor);
 
-    // 5. 꼬리 (살랑거림)
+    // 꼬리 (살랑거림)
     const tailWag = Math.sin(gallopPhase * 2) * 0.3;
     this.ctx.strokeStyle = '#2D3748';
     this.ctx.lineWidth = 3.5;
@@ -459,17 +604,17 @@ export class CanvasRenderer {
     this.ctx.quadraticCurveTo(-28, -6 + tailWag * 10, -32, 4 + tailWag * 15);
     this.ctx.stroke();
 
-    // 6. 몸통 (Body)
+    // 몸통 (Body)
     this.ctx.fillStyle = horseColor;
     this.ctx.beginPath();
     this.ctx.ellipse(0, 0, 20, 11, 0, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // 7. 앞다리 2개
+    // 앞다리 2개
     this.renderLeg(10, 8, Math.sin(gallopPhase + Math.PI) * 0.8 - 0.2, horseColor);
     this.renderLeg(16, 8, Math.sin(gallopPhase + Math.PI + 0.5) * 0.8 - 0.2, horseColor);
 
-    // 8. 목 & 머리 (Neck & Head)
+    // 목 & 머리 (Neck & Head)
     this.ctx.fillStyle = horseColor;
     this.ctx.beginPath();
     this.ctx.moveTo(10, -5);
@@ -500,30 +645,26 @@ export class CanvasRenderer {
     this.ctx.arc(27, -17, 1, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // 9. 안장 & 기수 (Jockey in Racing Silks)
-    // 안장
+    // 안장 & 기수 (Jockey in Racing Silks)
     this.ctx.fillStyle = '#2D3748';
     this.ctx.fillRect(-6, -12, 14, 4);
 
-    // 기수 몸체
     this.ctx.fillStyle = silkColor;
     this.ctx.beginPath();
     this.ctx.ellipse(0, -16, 7, 6, 0.4, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // 기수 헬멧/모자
     this.ctx.fillStyle = horseColor;
     this.ctx.beginPath();
     this.ctx.arc(5, -23, 5, 0, Math.PI * 2);
     this.ctx.fill();
-    // 모자 챙
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.fillRect(7, -22, 5, 2);
 
     this.ctx.restore(); // 말 변형 복원
 
-    // 10. 상단 이름표 및 실시간 순위/상태 배지 렌더링 (흔들림 없이 고정)
-    this.renderHorseBadge(horse, x, y);
+    // 상단 이름표 및 실시간 순위/보유아이템 배지 렌더링 (흔들림 없이 고정)
+    this.renderHorseBadge(horse, x, y, engine.horses.length);
   }
 
   renderLeg(ox, oy, angle, color) {
@@ -535,25 +676,24 @@ export class CanvasRenderer {
     this.ctx.lineWidth = 4;
     this.ctx.lineCap = 'round';
 
-    // 허벅지 -> 무릎
     this.ctx.beginPath();
     this.ctx.moveTo(0, 0);
     this.ctx.lineTo(0, 10);
-    // 발목 -> 발굽
     this.ctx.lineTo(Math.sin(angle) * 4, 18);
     this.ctx.stroke();
 
-    // 발굽 (말굽 블랙)
     this.ctx.fillStyle = '#1A202C';
     this.ctx.fillRect(Math.sin(angle) * 4 - 2, 16, 4, 3);
 
     this.ctx.restore();
   }
 
-  renderHorseBadge(horse, x, y) {
+  renderHorseBadge(horse, x, y, totalHorses = 1) {
     this.ctx.save();
     this.ctx.translate(x, y - 36);
 
+    const isLeader = horse.rank === 1;
+    const isTail = totalHorses > 1 && horse.rank === totalHorses;
     const nameText = horse.name || '참가자';
     const nickText = horse.nickname ? `#${horse.nickname}` : '';
 
@@ -566,10 +706,10 @@ export class CanvasRenderer {
     const badgeWidth = Math.max(88, nameWidth + nickWidth + 34);
     const badgeHeight = 22;
 
-    // 배지 배경
-    this.ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-    this.ctx.strokeStyle = horse.color.border || '#94A3B8';
-    this.ctx.lineWidth = 1.5;
+    // 배지 배경 (1위는 골드 테두리, 꼴찌는 로즈 경고 테두리)
+    this.ctx.fillStyle = isTail ? 'rgba(69, 10, 10, 0.92)' : 'rgba(15, 23, 42, 0.92)';
+    this.ctx.strokeStyle = isLeader ? '#F59E0B' : (isTail ? '#F43F5E' : (horse.color?.border || '#94A3B8'));
+    this.ctx.lineWidth = (isLeader || isTail) ? 2 : 1.5;
 
     this.ctx.beginPath();
     this.ctx.roundRect ? this.ctx.roundRect(-badgeWidth / 2, -badgeHeight / 2, badgeWidth, badgeHeight, 6) : this.ctx.fillRect(-badgeWidth / 2, -badgeHeight / 2, badgeWidth, badgeHeight);
@@ -578,14 +718,14 @@ export class CanvasRenderer {
 
     // 순위 동그라미
     const rankColors = { 1: '#F59E0B', 2: '#CBD5E1', 3: '#F97316' };
-    const rColor = rankColors[horse.rank] || '#475569';
+    const rColor = isTail ? '#F43F5E' : (rankColors[horse.rank] || '#475569');
 
     this.ctx.fillStyle = rColor;
     this.ctx.beginPath();
     this.ctx.arc(-badgeWidth / 2 + 12, 0, 7, 0, Math.PI * 2);
     this.ctx.fill();
 
-    this.ctx.fillStyle = horse.rank <= 3 ? '#0F172A' : '#FFFFFF';
+    this.ctx.fillStyle = (horse.rank <= 3 && !isTail) ? '#0F172A' : '#FFFFFF';
     this.ctx.font = 'bold 9px Pretendard, sans-serif';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
@@ -600,9 +740,92 @@ export class CanvasRenderer {
 
     // 별명 (Nickname) 렌더링
     if (nickText) {
-      this.ctx.fillStyle = '#94A3B8';
+      this.ctx.fillStyle = isTail ? '#FDA4AF' : '#94A3B8';
       this.ctx.font = '10px Pretendard, sans-serif';
       this.ctx.fillText(nickText, -badgeWidth / 2 + 24 + nameWidth + 5, 0);
+    }
+
+    // 보유 아이템 버블 표시 (우측 상단)
+    if (horse.heldItem && !horse.finished) {
+      const bubbleX = badgeWidth / 2 + 12;
+      this.ctx.fillStyle = 'rgba(245, 158, 11, 0.95)';
+      this.ctx.strokeStyle = '#FEF3C7';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+      this.ctx.arc(bubbleX, 0, 10, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.stroke();
+
+      this.ctx.font = '11px serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(horse.heldItem.icon || '🎁', bubbleX, 1);
+    }
+
+    // 꼴찌 위험 미니 태그 (좌측 상단)
+    if (isTail && !horse.finished) {
+      this.ctx.font = 'bold 9px Pretendard, sans-serif';
+      this.ctx.fillStyle = '#FECDD3';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('☕️결제위기', 0, -16);
+    } else if (isLeader && !horse.finished) {
+      this.ctx.font = '11px serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('👑', -badgeWidth / 2 + 12, -16);
+    }
+
+    this.ctx.restore();
+  }
+
+  renderViewportOverlays(engine, weather) {
+    this.ctx.save();
+
+    // 1. 폭우(rain) 빗줄기 이펙트
+    if (weather === 'rain') {
+      this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+      this.ctx.lineWidth = 1.2;
+      const dropCount = 45;
+      for (let i = 0; i < dropCount; i++) {
+        const rx = ((i * 73 + this.animTime * 420) % (this.width + 100)) - 50;
+        const ry = ((i * 59 + this.animTime * 680) % (this.height + 60)) - 30;
+        this.ctx.beginPath();
+        this.ctx.moveTo(rx, ry);
+        this.ctx.lineTo(rx - 8, ry + 18);
+        this.ctx.stroke();
+      }
+    }
+
+    // 2. 돌풍(wind) 바람 궤적 라인
+    if (weather === 'wind') {
+      this.ctx.strokeStyle = 'rgba(226, 232, 240, 0.22)';
+      this.ctx.lineWidth = 1.5;
+      for (let i = 0; i < 14; i++) {
+        const wx = ((i * 130 + this.animTime * 550) % (this.width + 200)) - 100;
+        const wy = this.trackTop + ((i * 47) % Math.max(100, this.height - this.trackTop - 40));
+        this.ctx.beginPath();
+        this.ctx.moveTo(wx, wy);
+        this.ctx.lineTo(wx + 55, wy);
+        this.ctx.stroke();
+      }
+    }
+
+    // 3. 라스트 스퍼트 구간 진입 시 집중선/비네팅 연출
+    if (engine.lastSpurtAnnounced && engine.isRunning && !engine.isFinished) {
+      const pulse = 0.12 + Math.sin(this.animTime * 10) * 0.05;
+      const borderGrad = this.ctx.createRadialGradient(
+        this.width / 2, this.height / 2, this.width * 0.32,
+        this.width / 2, this.height / 2, this.width * 0.65
+      );
+      borderGrad.addColorStop(0, 'rgba(245, 158, 11, 0)');
+      borderGrad.addColorStop(1, `rgba(239, 68, 68, ${pulse})`);
+      this.ctx.fillStyle = borderGrad;
+      this.ctx.fillRect(0, 0, this.width, this.height);
+    }
+
+    // 4. 번개 플래시 효과
+    if (this.screenFlashAlpha > 0) {
+      this.ctx.fillStyle = `rgba(254, 240, 138, ${this.screenFlashAlpha})`;
+      this.ctx.fillRect(0, 0, this.width, this.height);
     }
 
     this.ctx.restore();
@@ -630,6 +853,7 @@ export class CanvasRenderer {
         themeColor = '#FACC15';
         label = '⚡️ 번개 폭풍 작렬!';
         particleColors = ['#FACC15', '#FEF08A', '#38BDF8', '#FFFFFF'];
+        this.screenFlashAlpha = 0.45;
         break;
       case 'missile':
         themeColor = '#EF4444';
@@ -645,6 +869,16 @@ export class CanvasRenderer {
         themeColor = '#A855F7';
         label = '🧲 초전도 자석 발동!';
         particleColors = ['#A855F7', '#C084FC', '#38BDF8', '#FFFFFF'];
+        break;
+      case 'espresso':
+        themeColor = '#10B981';
+        label = '☕️ 더블 에스프레소 각성!';
+        particleColors = ['#10B981', '#6EE7B7', '#FDE68A', '#FFFFFF'];
+        break;
+      case 'approval':
+        themeColor = '#EC4899';
+        label = '📋 긴급 결재서류 투척!';
+        particleColors = ['#EC4899', '#F472B6', '#FDE047', '#FFFFFF'];
         break;
     }
 
@@ -708,29 +942,41 @@ export class CanvasRenderer {
 
     if (itemType === 'banana') {
       label = `🍌 ${attacker}바나나 밟음! (스핀 & 감속)`;
-      bg = 'rgba(217, 119, 6, 0.95)'; // Amber
+      bg = 'rgba(217, 119, 6, 0.95)';
       border = '#FCD34D';
       particleColors = ['#F59E0B', '#FEF08A', '#84CC16', '#FFFFFF'];
     } else if (itemType === 'missile') {
       label = `💥 ${attacker}미사일 직격타! (스핀 & 급정지)`;
-      bg = 'rgba(220, 38, 38, 0.95)'; // Crimson
+      bg = 'rgba(220, 38, 38, 0.95)';
       border = '#FCA5A5';
       particleColors = ['#EF4444', '#F97316', '#FDE047', '#FFFFFF'];
     } else if (itemType === 'lightning') {
       label = `⚡️ ${attacker}번개 감전! (페이스 다운)`;
-      bg = 'rgba(202, 138, 4, 0.95)'; // Electric Gold
+      bg = 'rgba(202, 138, 4, 0.95)';
       border = '#FEF08A';
       particleColors = ['#FACC15', '#FEF08A', '#38BDF8', '#FFFFFF'];
+      // 하늘에서 내리꽂히는 낙뢰 광선 추가
+      this.lightningBolts.push({
+        x,
+        y,
+        life: 0.35,
+        maxLife: 0.35
+      });
+    } else if (itemType === 'approval') {
+      label = `📋 ${attacker}긴급 결재 폭탄! (서류 검토 감속)`;
+      bg = 'rgba(190, 24, 93, 0.95)';
+      border = '#F9A8D4';
+      particleColors = ['#EC4899', '#F472B6', '#FFFFFF'];
     } else if (itemType === 'shieldBlock') {
       label = `🛡️ ${attacker}공격 쉴드로 완벽 방어!`;
-      bg = 'rgba(13, 148, 136, 0.95)'; // Emerald/Cyan
+      bg = 'rgba(13, 148, 136, 0.95)';
       border = '#67E8F9';
       particleColors = ['#06B6D4', '#67E8F9', '#10B981', '#FFFFFF'];
     } else {
       label = `⚠️ ${attacker}피격 발생!`;
     }
 
-    // 1. 피격 알림 플로팅 배지 (말 위쪽에 선명하게 팝업)
+    // 1. 피격 알림 플로팅 배지
     this.floatingPopups.push({
       x,
       y: y - 46,
@@ -739,7 +985,7 @@ export class CanvasRenderer {
       bg: bg,
       border: border,
       alpha: 1.0,
-      life: 1.8, // 1.8초 동안 충분히 읽을 수 있도록 유지
+      life: 1.8,
       maxLife: 1.8,
       isHitAlert: true
     });
@@ -756,7 +1002,7 @@ export class CanvasRenderer {
       lineWidth: 3.5
     });
 
-    // 3. 충격 스파크 및 파티클 폭발 (20개)
+    // 3. 충격 스파크 및 파티클 폭발
     for (let i = 0; i < 20; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 3.5 + Math.random() * 5.5;
@@ -787,14 +1033,15 @@ export class CanvasRenderer {
     }
   }
 
-  addDustParticle(x, y, color) {
+  addDustParticle(x, y, weather = 'sunny') {
+    const isRain = weather === 'rain';
     this.particles.push({
       x, y,
       vx: -(1.5 + Math.random() * 2),
       vy: -(Math.random() * 1.5 - 0.5),
       size: 3 + Math.random() * 4,
       alpha: 0.6,
-      color: 'rgba(214, 158, 46, 0.6)',
+      color: isRain ? 'rgba(148, 163, 184, 0.65)' : 'rgba(214, 158, 46, 0.6)',
       life: 0.5
     });
   }
@@ -830,7 +1077,10 @@ export class CanvasRenderer {
   }
 
   updateParticles(dt) {
-    // 먼지/스파크/버스트 업데이트
+    if (this.screenFlashAlpha > 0) {
+      this.screenFlashAlpha = Math.max(0, this.screenFlashAlpha - dt * 1.8);
+    }
+
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.x += p.vx;
@@ -842,7 +1092,15 @@ export class CanvasRenderer {
       }
     }
 
-    // 쇼크웨이브 링 업데이트
+    if (this.lightningBolts) {
+      for (let i = this.lightningBolts.length - 1; i >= 0; i--) {
+        this.lightningBolts[i].life -= dt;
+        if (this.lightningBolts[i].life <= 0) {
+          this.lightningBolts.splice(i, 1);
+        }
+      }
+    }
+
     if (this.shockwaves) {
       for (let i = this.shockwaves.length - 1; i >= 0; i--) {
         const sw = this.shockwaves[i];
@@ -855,7 +1113,6 @@ export class CanvasRenderer {
       }
     }
 
-    // 플로팅 텍스트 팝업 업데이트
     if (this.floatingPopups) {
       for (let i = this.floatingPopups.length - 1; i >= 0; i--) {
         const pop = this.floatingPopups[i];
@@ -868,12 +1125,11 @@ export class CanvasRenderer {
       }
     }
 
-    // 폭죽 업데이트
     for (let i = this.confetti.length - 1; i >= 0; i--) {
       const c = this.confetti[i];
       c.x += c.vx;
       c.y += c.vy;
-      c.vy += 9.8 * dt * 0.8; // 중력
+      c.vy += 9.8 * dt * 0.8;
       c.rotation += c.vRot;
       c.life -= dt;
       c.alpha = Math.max(0, c.life / 2.2);
@@ -884,6 +1140,25 @@ export class CanvasRenderer {
   }
 
   renderParticles() {
+    // 0. 번개 낙뢰 볼트
+    if (this.lightningBolts) {
+      this.lightningBolts.forEach(bolt => {
+        this.ctx.save();
+        this.ctx.globalAlpha = Math.max(0, bolt.life / bolt.maxLife);
+        this.ctx.strokeStyle = '#FEF08A';
+        this.ctx.shadowColor = '#38BDF8';
+        this.ctx.shadowBlur = 12;
+        this.ctx.lineWidth = 3.5;
+        this.ctx.beginPath();
+        this.ctx.moveTo(bolt.x - 10, 0);
+        this.ctx.lineTo(bolt.x + 12, bolt.y * 0.35);
+        this.ctx.lineTo(bolt.x - 8, bolt.y * 0.65);
+        this.ctx.lineTo(bolt.x, bolt.y);
+        this.ctx.stroke();
+        this.ctx.restore();
+      });
+    }
+
     // 1. 쇼크웨이브 링
     if (this.shockwaves) {
       this.shockwaves.forEach(sw => {
@@ -909,7 +1184,7 @@ export class CanvasRenderer {
       this.ctx.restore();
     });
 
-    // 3. 플로팅 텍스트 팝업 (피격 알림 배지 및 아이템 사용 배지)
+    // 3. 플로팅 텍스트 팝업
     if (this.floatingPopups) {
       this.floatingPopups.forEach(pop => {
         this.ctx.save();
@@ -920,7 +1195,6 @@ export class CanvasRenderer {
         const tw = this.ctx.measureText(pop.text).width + (isHit ? 20 : 14);
         const th = isHit ? 24 : 20;
 
-        // 배지 배경 그림자 & 박스
         this.ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
         this.ctx.shadowBlur = 10;
         this.ctx.fillStyle = pop.bg;
@@ -928,14 +1202,12 @@ export class CanvasRenderer {
         this.ctx.roundRect ? this.ctx.roundRect(pop.x - tw / 2, pop.y - th / 2, tw, th, 6) : this.ctx.fillRect(pop.x - tw / 2, pop.y - th / 2, tw, th);
         this.ctx.fill();
 
-        // 테두리 강조선
         if (pop.border) {
           this.ctx.strokeStyle = pop.border;
           this.ctx.lineWidth = 1.5;
           this.ctx.stroke();
         }
 
-        // 텍스트
         this.ctx.shadowBlur = 0;
         this.ctx.fillStyle = '#FFFFFF';
         this.ctx.textAlign = 'center';

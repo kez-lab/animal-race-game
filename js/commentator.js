@@ -4,12 +4,13 @@
 
 import { COMMENTARY_MESSAGES } from './presets.js';
 import { aiEngine } from './aiEngine.js';
+import { escapeHtml } from './utils.js';
 
 export class Commentator {
   constructor(containerElement) {
     this.container = containerElement;
     this.messages = [];
-    this.maxMessages = 40;
+    this.maxMessages = 45;
     this.lastLeadChangeTime = 0;
   }
 
@@ -23,7 +24,7 @@ export class Commentator {
   addMessage(text, type = 'normal') {
     const timestamp = new Date();
     const timeStr = `${String(timestamp.getSeconds()).padStart(2, '0')}.${Math.floor(timestamp.getMilliseconds() / 100)}`;
-    
+
     this.messages.push({ text, type, time: timeStr });
     if (this.messages.length > this.maxMessages) {
       this.messages.shift();
@@ -46,9 +47,9 @@ export class Commentator {
 
     this.container.innerHTML = this.messages.map(m => {
       const icon = icons[m.type] || '💬';
-      return `<div class="comment-item ${m.type} animate-in">
+      return `<div class="comment-item ${escapeHtml(m.type)} animate-in">
         <span class="comment-icon">${icon}</span>
-        <span class="comment-text">${m.text}</span>
+        <span class="comment-text">${escapeHtml(m.text)}</span>
       </div>`;
     }).join('');
 
@@ -56,9 +57,10 @@ export class Commentator {
     this.container.scrollTop = this.container.scrollHeight;
   }
 
-  onRaceStart(horseCount) {
+  onRaceStart(horseCount, weatherName = '') {
     const randomStart = COMMENTARY_MESSAGES.start[Math.floor(Math.random() * COMMENTARY_MESSAGES.start.length)];
-    this.addMessage(`${randomStart} (총 ${horseCount}두 출전)`, 'spurt');
+    const weatherSuffix = weatherName ? ` · 기상: ${weatherName}` : '';
+    this.addMessage(`${randomStart} (총 ${horseCount}두 출전${weatherSuffix})`, 'spurt');
   }
 
   onEvent(type, horse, info) {
@@ -66,18 +68,24 @@ export class Commentator {
     const chosen = aiComments[Math.floor(Math.random() * aiComments.length)];
 
     let msgType = 'normal';
-    if (type === 'boost' || type === 'itemUseBooster' || type === 'itemUseMagnet') msgType = 'boost';
-    else if (type === 'slip' || type === 'obstacleHit') msgType = 'slip';
-    else if (type === 'itemUseLightning' || type === 'missileHit') msgType = 'danger';
-    else if (type === 'itemUseMissile') msgType = 'spurt';
-    else if (type === 'shieldBlock') msgType = 'finish';
+    if (type === 'boost' || type === 'itemUseBooster' || type === 'itemUseMagnet' || type === 'itemUseEspresso') {
+      msgType = 'boost';
+    } else if (type === 'slip' || type === 'obstacleHit' || type === 'approvalHit') {
+      msgType = 'slip';
+    } else if (type === 'itemUseLightning' || type === 'missileHit' || type === 'tailSwap' || type === 'tailDanger') {
+      msgType = 'danger';
+    } else if (type === 'itemUseMissile' || type === 'itemUseApproval' || type === 'lastSpurtPhase') {
+      msgType = 'spurt';
+    } else if (type === 'shieldBlock' || type === 'photoFinish') {
+      msgType = 'finish';
+    }
 
     this.addMessage(chosen, msgType);
   }
 
   onLeadChange(newLeader, oldLeader) {
-    if (Math.random() < 0.7) {
-      const aiComments = aiEngine.generateLiveCommentary('leadChange', newLeader);
+    if (Math.random() < 0.75) {
+      const aiComments = aiEngine.generateLiveCommentary('leadChange', newLeader, { oldLeader });
       const chosen = aiComments[Math.floor(Math.random() * aiComments.length)];
       this.addMessage(chosen, 'boost');
     }
@@ -100,6 +108,8 @@ export class Commentator {
       this.addMessage(`🏆 1위 골인!! 영광의 우승자는 [${horse.name}]님!!`, 'finish');
     } else if (rank === 2) {
       this.addMessage(`🥈 2위 [${horse.name}]님 결승선 통과!`, 'normal');
+    } else if (rank === 3) {
+      this.addMessage(`🥉 3위 [${horse.name}]님 결승선 통과!`, 'normal');
     }
   }
 

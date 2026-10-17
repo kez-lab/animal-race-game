@@ -1,6 +1,6 @@
 /**
  * sound.js - Web Audio API 기반 오디오 신디사이저 엔진
- * 외부 MP3 의존 없이 브라우저 내장 Web Audio API로 100% 실감 사운드 생성
+ * 외부 MP3 의존 없이 브라우저 내장 Web Audio API로 100% 실감 사운드 및 프로시저럴 아케이드 BGM 생성
  */
 
 class SoundEngine {
@@ -9,7 +9,9 @@ class SoundEngine {
     this.isMuted = false;
     this.masterGain = null;
     this.gallopInterval = null;
-    this.bgmGain = null;
+    this.bgmInterval = null;
+    this.bgmStep = 0;
+    this.bgmFastMode = false;
     this.initialized = false;
   }
 
@@ -114,7 +116,7 @@ class SoundEngine {
     filter.frequency.setValueAtTime(800 * pitchMod, t);
     filter.Q.setValueAtTime(2.5, t);
 
-    gain.gain.setValueAtTime(0.22, t);
+    gain.gain.setValueAtTime(0.18, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
 
     osc.connect(filter);
@@ -133,27 +135,74 @@ class SoundEngine {
     osc.stop(t + 0.06);
   }
 
-  // 레이스 중 다그닥다그닥 말발굽 루프 시작
+  // 프로시저럴 경마장 아케이드 신스 BGM + 말발굽 리듬
   startGallopRhythm() {
     this.stopGallopRhythm();
     this.resume();
+    this.bgmFastMode = false;
+    this.bgmStep = 0;
+
+    // 윌리엄 텔 서곡 모티프 경쾌한 아케이드 멜로디 (Hz)
+    const melodySeq = [
+      392.00, 392.00, 392.00, 523.25,
+      659.25, 659.25, 659.25, 523.25,
+      587.33, 493.88, 392.00, 493.88,
+      523.25, 0,      659.25, 0,
+      392.00, 392.00, 392.00, 523.25,
+      659.25, 783.99, 659.25, 523.25,
+      587.33, 659.25, 587.33, 493.88,
+      523.25, 0,      523.25, 0
+    ];
 
     let step = 0;
     this.gallopInterval = setInterval(() => {
       if (this.isMuted || !this.ctx) return;
       const pitch = step % 2 === 0 ? 1.0 : 0.88;
       const pan = Math.sin(step * 0.4) * 0.4;
-      this.playSingleHoof(pitch, pan);
+      this.playSingleHoof(pitch * (this.bgmFastMode ? 1.12 : 1.0), pan);
+
+      // 아케이드 베이스 & 멜로디 노트 합성
+      const noteFreq = melodySeq[this.bgmStep % melodySeq.length];
+      const keyShift = this.bgmFastMode ? 1.122 : 1.0; // 라스트 스퍼트 시 온음 키업!
+      if (noteFreq > 0) {
+        this.playSynthNote(noteFreq * keyShift, 0.09, 'triangle', 0.065);
+      }
+      if (this.bgmStep % 2 === 0) {
+        const bassFreq = (this.bgmStep % 4 === 0 ? 130.81 : 196.00) * keyShift;
+        this.playSynthNote(bassFreq, 0.08, 'sine', 0.055);
+      }
+
+      this.bgmStep++;
       step++;
-    }, 110);
+    }, 115);
   }
 
-  // 말발굽 루프 정지
+  playSynthNote(freq, dur, type = 'triangle', volume = 0.06) {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+
+  setSpurtMode(enabled) {
+    this.bgmFastMode = Boolean(enabled);
+  }
+
+  // 말발굽 및 BGM 루프 정지
   stopGallopRhythm() {
     if (this.gallopInterval) {
       clearInterval(this.gallopInterval);
       this.gallopInterval = null;
     }
+    this.bgmFastMode = false;
   }
 
   // 부스터 효과음 (Swoosh & Chime)
@@ -190,6 +239,62 @@ class SoundEngine {
     bellGain.connect(this.masterGain);
     bell.start(t + 0.1);
     bell.stop(t + 0.5);
+  }
+
+  // 에스프레소 카페인 충전 효과음
+  playEspresso() {
+    this.resume();
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const notes = [587.33, 783.99, 987.77, 1174.66]; // D5, G5, B5, D6
+    notes.forEach((f, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, t + idx * 0.045);
+      gain.gain.setValueAtTime(0.25, t + idx * 0.045);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.045 + 0.16);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t + idx * 0.045);
+      osc.stop(t + idx * 0.045 + 0.18);
+    });
+  }
+
+  // 긴급 결재서류 폭탄 효과음
+  playApproval() {
+    this.resume();
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(740, t);
+    osc.frequency.setValueAtTime(554.37, t + 0.08);
+    gain.gain.setValueAtTime(0.28, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.26);
+  }
+
+  // 포토 피니시 카메라 셔터 효과음
+  playPhotoFinish() {
+    this.resume();
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1800, t);
+    osc.frequency.exponentialRampToValueAtTime(400, t + 0.06);
+    gain.gain.setValueAtTime(0.35, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.08);
   }
 
   // 아이템 획득 사운드 (Item Box Pickup)

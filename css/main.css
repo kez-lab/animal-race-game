@@ -15,6 +15,7 @@
   --accent-emerald: #10B981;
   --accent-rose: #F43F5E;
   --accent-blue: #3B82F6;
+  --accent-cyan: #06B6D4;
 
   --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
@@ -1141,5 +1142,223 @@ body {
     flex: 1;
     text-align: center;
     justify-content: center;
+  }
+}
+
+/* =========================================================
+   v2.0 Upgrade Styles: Header Pills, Stat Mode, Weather, Drink & Seed
+   ========================================================= */
+
+.header-pill-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  height: 40px;
+  padding: 0 13px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.header-pill-btn:hover {
+  transform: translateY(-1px);
+}
+
+.header-pill-btn.gold {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.1);
+  color: #FDE68A;
+}
+
+.header-pill-btn.gold:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: var(--accent-gold);
+  color: #FFFFFF;
+}
+
+.header-pill-btn.cyan {
+  border-color: rgba(6, 182, 212, 0.35);
+  background: rgba(6, 182, 212, 0.1);
+  color: #67E8F9;
+}
+
+.header-pill-btn.cyan:hover {
+  background: rgba(6, 182, 212, 0.22);
+  border-color: var(--accent-cyan);
+  color: #FFFFFF;
+}
+
+.pill-count {
+  background: rgba(245, 158, 11, 0.25);
+  color: var(--accent-gold);
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.stat-mode-cards {
+  grid-template-columns: 1fr 1fr;
+}
+
+.fair-badge {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38BDF8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.stats-badge {
+  background: rgba(168, 85, 247, 0.2);
+  color: #C084FC;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+/* Weather Selector */
+.weather-select {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.weather-btn {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.weather-btn:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+
+.weather-btn.active {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: var(--accent-cyan);
+  color: #67E8F9;
+  box-shadow: 0 0 0 1px var(--accent-cyan);
+}
+
+/* Drink Selector Badge on Participant Row */
+.horse-drink-btn {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  color: #34D399;
+  padding: 2px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.horse-drink-btn:hover {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: var(--accent-emerald);
+  color: #FFFFFF;
+}
+
+/* Seed Input Row */
+.seed-input-row {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.seed-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.seed-input {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: var(--accent-gold);
+  font-family: monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  text-transform: uppercase;
+  flex: 1;
+  max-width: 220px;
+  outline: none;
+}
+
+.seed-input:focus {
+  border-color: var(--accent-gold);
+}
+
+.empty-sample-btn {
+  margin-top: 12px;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: var(--accent-gold);
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.empty-sample-btn:hover {
+  background: rgba(245, 158, 11, 0.25);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+}
+
+.ai-status-pill {
+  border-color: rgba(139, 92, 246, 0.45);
+  color: #C4B5FD;
+  background: rgba(139, 92, 246, 0.12);
+}
+
+.ai-status-pill.ready {
+  border-color: rgba(16, 185, 129, 0.55);
+  color: #6EE7B7;
+  background: rgba(16, 185, 129, 0.14);
+}
+
+.ai-status-pill:hover {
+  border-color: #A78BFA;
+  color: #FFFFFF;
+}
+
+@media (max-width: 768px) {
+  .pill-text {
+    display: none;
+  }
+  .header-pill-btn {
+    padding: 0 10px;
+    height: 36px;
+  }
+  .weather-select {
+    grid-template-columns: repeat(3, 1fr);
   }
 }

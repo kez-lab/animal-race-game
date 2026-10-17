@@ -1034,3 +1034,204 @@
   50% { opacity: 0; }
 }
 
+
+/* =========================================================
+   v2.0 Modal Styles: Photo Finish, MVP Awards, Receipt Per-Person, Hall of Fame
+   ========================================================= */
+
+.photo-finish-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(90deg, rgba(244, 63, 94, 0.2), rgba(245, 158, 11, 0.25));
+  border: 1px solid rgba(244, 63, 94, 0.5);
+  color: #FECDD3;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  margin-bottom: 10px;
+}
+
+.mvp-awards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.mvp-award-card {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mvp-badge-tag {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent-gold);
+}
+
+.mvp-player-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.mvp-award-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.receipt-per-person-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #B91C1C;
+  background: rgba(254, 226, 226, 0.65);
+  padding: 5px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+}
+
+.action-btn-download {
+  background: linear-gradient(135deg, #8B5CF6, #6D28D9);
+  color: #FFFFFF;
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.action-btn-download:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.action-btn-replay {
+  background: rgba(6, 182, 212, 0.16);
+  color: #67E8F9;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.action-btn-replay:hover {
+  background: rgba(6, 182, 212, 0.28);
+  color: #FFFFFF;
+}
+
+/* Hall of Fame Styles */
+.hof-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.hof-kpi-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  text-align: center;
+}
+
+.hof-kpi-card.gold {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.hof-kpi-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.hof-kpi-val {
+  font-size: 20px;
+  font-weight: 900;
+  color: #FFFFFF;
+}
+
+.hof-kpi-card.gold .hof-kpi-val {
+  color: var(--accent-gold);
+}
+
+.hof-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.hof-col-card, .hof-history-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.hof-col-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #E2E8F0;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 8px;
+}
+
+.hof-list, .hof-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.hof-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary);
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+}
+
+.hof-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg-secondary);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .hof-kpi-grid, .hof-columns {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,30 +1,41 @@
 /**
- * app.js - 오피스 더비 메인 애플리케이션 라이프사이클 및 UI 제어
- * 아이템전 모드 및 로컬 스토리지 기반 커스텀 프리셋 관리 지원
+ * app.js - 오피스 더비 메인 애플리케이션 라이프사이클 및 UI 제어 (v2.0 고도화)
+ * - 8종 아이템전 & 스피드전, 공정 추첨(fair) vs 350pt 능력치전(stats)
+ * - 기상 시스템(맑음/수중전/돌풍/야간), 카메라 디렉터(선두/꼴찌/전체), 시드(Seed) 재현 및 URL 공유
+ * - 개별 희망 음료 지정, 실물 감열지 영수증 PNG 이미지 발급, 사내 명예의 전당(누적 통계) 지원
  */
 
-import { HORSE_COLORS, OFFICE_NICKNAMES, DEFAULT_PRESETS, AI_STRATEGIES, COFFEE_MENUS, FUNNY_RECEIPT_NOTES } from './presets.js';
+import { HORSE_COLORS, OFFICE_NICKNAMES, AI_STRATEGIES, COFFEE_MENUS, WEATHER_TYPES, FUNNY_RECEIPT_NOTES } from './presets.js';
 import { sound } from './sound.js';
 import { aiEngine } from './aiEngine.js';
-import { calculatePenaltyHorses, calculateEstimatedPrice, RULE_DESCRIPTIONS } from './penalty.js';
+import { calculatePenaltyHorses, calculateDetailedOrder, computeRaceMVPs, RULE_DESCRIPTIONS } from './penalty.js';
 import { PresetManager, STORAGE_KEYS } from './presetManager.js';
 import { HorseGenerator } from './horseGenerator.js';
-import { RaceEngine } from './raceEngine.js';
+import { RaceEngine, STAT_MODES } from './raceEngine.js';
 import { CanvasRenderer } from './canvasRenderer.js';
 import { Commentator } from './commentator.js';
 import { AILoader } from './aiLoader.js';
+import { StatsManager } from './statsManager.js';
+import { ReceiptExporter } from './receiptExporter.js';
+import { createRng, seedToCode, codeToSeed, deriveSeed } from './rng.js';
+import { escapeHtml } from './utils.js';
 
 class OfficeDerbyApp {
   constructor() {
     this.participants = [];
     this.customPresets = [];
     this.stableHorses = HorseGenerator.getDefaultStable();
+    this.hallOfFameStats = StatsManager.loadStats();
     this.currentDraftingIndex = null;
+
     this.selectedDistance = 1600;
     this.selectedGameMode = 'item'; // 'item' | 'speed'
+    this.selectedStatMode = STAT_MODES.FAIR; // 'fair' | 'stats'
+    this.selectedWeather = 'sunny'; // 'sunny' | 'rain' | 'wind' | 'night' | 'random'
     this.selectedRule = 'last1';
     this.includeCoffeeMenu = true;
     this.isMuted = false;
+    this.cameraMode = 'lead'; // 'lead' | 'tail' | 'pack'
 
     // 엔진 & 렌더러
     this.engine = null;
@@ -33,18 +44,24 @@ class OfficeDerbyApp {
     this.animFrameId = null;
     this.lastFrameTime = 0;
     this.timeScale = 1.0;
+    this.cachedResultData = null;
 
     this.initDOMElements();
     this.loadInitialData();
+    this.applyUrlParamsIfPresent();
     this.bindEvents();
+    this.updateHallOfFameBadge();
+    this.updateAIEngineBadge();
+    aiEngine.onStatusChange(() => this.updateAIEngineBadge());
   }
 
   initDOMElements() {
-    // 뷰 섹션
+    // 뷰 섹션 및 모달
     this.setupView = document.getElementById('setupView');
     this.raceView = document.getElementById('raceView');
     this.resultModal = document.getElementById('resultModal');
     this.helpModal = document.getElementById('helpModal');
+    this.hallOfFameModal = document.getElementById('hallOfFameModal');
 
     // 설정 화면 요소
     this.presetChipsContainer = document.getElementById('presetChipsContainer');
@@ -60,6 +77,7 @@ class OfficeDerbyApp {
     this.aiAutoDraftHorsesBtn = document.getElementById('aiAutoDraftHorsesBtn');
     this.startRaceBtn = document.getElementById('startRaceBtn');
     this.randomCoffeeMenuCheck = document.getElementById('randomCoffeeMenuCheck');
+    this.customSeedInput = document.getElementById('customSeedInput');
 
     // 마구간 드래프트 모달
     this.horseDraftModal = document.getElementById('horseDraftModal');
@@ -71,6 +89,8 @@ class OfficeDerbyApp {
     // 레이스 화면 요소
     this.raceCanvas = document.getElementById('raceCanvas');
     this.raceDistanceBadge = document.getElementById('raceDistanceBadge');
+    this.raceWeatherBadge = document.getElementById('raceWeatherBadge');
+    this.raceSeedBadge = document.getElementById('raceSeedBadge');
     this.raceTimerDisplay = document.getElementById('raceTimerDisplay');
     this.pauseRaceBtn = document.getElementById('pauseRaceBtn');
     this.speedRaceBtn = document.getElementById('speedRaceBtn');
@@ -78,24 +98,47 @@ class OfficeDerbyApp {
     this.miniTrack = document.getElementById('miniTrack');
     this.commentList = document.getElementById('commentList');
     this.liveRankList = document.getElementById('liveRankList');
+    this.liveDangerSummary = document.getElementById('liveDangerSummary');
 
     // 결과 모달 요소
+    this.photoFinishBanner = document.getElementById('photoFinishBanner');
     this.podiumName1 = document.getElementById('podiumName1');
     this.podiumName2 = document.getElementById('podiumName2');
     this.podiumName3 = document.getElementById('podiumName3');
+    this.mvpAwardsContainer = document.getElementById('mvpAwardsContainer');
     this.aiArticleContent = document.getElementById('aiArticleContent');
     this.receiptPayerName = document.getElementById('receiptPayerName');
     this.receiptRuleDesc = document.getElementById('receiptRuleDesc');
     this.receiptDate = document.getElementById('receiptDate');
     this.receiptMenuItems = document.getElementById('receiptMenuItems');
     this.receiptTotalAmount = document.getElementById('receiptTotalAmount');
+    this.receiptPerPersonRow = document.getElementById('receiptPerPersonRow');
+    this.receiptPerPersonAmount = document.getElementById('receiptPerPersonAmount');
     this.receiptFooterNotes = document.getElementById('receiptFooterNotes');
     this.modalRankList = document.getElementById('modalRankList');
     this.copyResultBtn = document.getElementById('copyResultBtn');
+    this.downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
+    this.replaySameSeedBtn = document.getElementById('replaySameSeedBtn');
     this.rematchBtn = document.getElementById('rematchBtn');
     this.backToSetupBtn = document.getElementById('backToSetupBtn');
 
+    // 명예의 전당 모달 요소
+    this.hallOfFameBtn = document.getElementById('hallOfFameBtn');
+    this.hallOfFameCountBadge = document.getElementById('hallOfFameCountBadge');
+    this.hofTotalRaces = document.getElementById('hofTotalRaces');
+    this.hofTotalCups = document.getElementById('hofTotalCups');
+    this.hofTotalSpent = document.getElementById('hofTotalSpent');
+    this.hofPayerList = document.getElementById('hofPayerList');
+    this.hofWinnerList = document.getElementById('hofWinnerList');
+    this.hofHistoryList = document.getElementById('hofHistoryList');
+    this.clearHallOfFameBtn = document.getElementById('clearHallOfFameBtn');
+    this.closeHallOfFameBtn = document.getElementById('closeHallOfFameBtn');
+
     // 헤더 및 모달 버튼
+    this.aiEngineStatusBtn = document.getElementById('aiEngineStatusBtn');
+    this.aiEngineStatusDot = document.getElementById('aiEngineStatusDot');
+    this.aiEngineStatusText = document.getElementById('aiEngineStatusText');
+    this.shareSetupBtn = document.getElementById('shareSetupBtn');
     this.soundToggleBtn = document.getElementById('soundToggleBtn');
     this.helpBtn = document.getElementById('helpBtn');
     this.closeHelpBtn = document.getElementById('closeHelpBtn');
@@ -104,11 +147,9 @@ class OfficeDerbyApp {
   }
 
   loadInitialData() {
-    // 1. 프리셋 로드 (로컬 스토리지 우선)
     this.customPresets = PresetManager.loadPresets();
     this.renderPresetChips();
 
-    // 2. 참가자 목록 로드
     const savedParticipants = localStorage.getItem(STORAGE_KEYS.PARTICIPANTS);
     if (savedParticipants) {
       try {
@@ -116,6 +157,7 @@ class OfficeDerbyApp {
         if (Array.isArray(parsed) && parsed.length > 0) {
           this.participants = parsed.map((p, idx) => ({
             ...p,
+            drinkId: p.drinkId || 'random',
             strategy: p.strategy || AI_STRATEGIES[idx % AI_STRATEGIES.length]
           }));
         }
@@ -126,17 +168,115 @@ class OfficeDerbyApp {
 
     this.renderParticipantList();
 
-    // 엔진 & 렌더러 생성
     this.commentator = new Commentator(this.commentList);
     this.renderer = new CanvasRenderer(this.raceCanvas);
     this.engine = new RaceEngine({
       gameMode: this.selectedGameMode,
+      statMode: this.selectedStatMode,
       onTick: (data) => this.onEngineTick(data),
       onEvent: (type, horse, info) => this.onEngineEvent(type, horse, info),
       onLeadChange: (newLeader, oldLeader) => this.onEngineLeadChange(newLeader, oldLeader),
       onHorseFinished: (horse, rank) => this.onEngineHorseFinished(horse, rank),
       onAllFinished: (horses) => this.onEngineAllFinished(horses)
     });
+  }
+
+  applyUrlParamsIfPresent() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const membersStr = params.get('members');
+      if (membersStr) {
+        const names = membersStr.split(',').map(s => s.trim()).filter(Boolean).slice(0, 12);
+        if (names.length >= 2) {
+          this.participants = names.map((name, idx) => {
+            const defaultHorse = this.stableHorses[idx % this.stableHorses.length];
+            return {
+              id: idx + 1,
+              name: name.slice(0, 12),
+              nickname: OFFICE_NICKNAMES[idx % OFFICE_NICKNAMES.length],
+              horseName: defaultHorse ? defaultHorse.name : `${name}의 명마`,
+              drinkId: 'random',
+              color: HORSE_COLORS[idx % HORSE_COLORS.length],
+              strategy: defaultHorse ? defaultHorse.strategy : AI_STRATEGIES[idx % AI_STRATEGIES.length],
+              stats: defaultHorse ? { ...defaultHorse.stats } : HorseGenerator.generateBalancedStats()
+            };
+          });
+          this.renderParticipantList();
+          this.saveParticipants();
+        }
+      }
+
+      const mode = params.get('mode');
+      if (mode === 'item' || mode === 'speed') {
+        this.selectedGameMode = mode;
+        const radio = document.querySelector(`input[name="gameMode"][value="${mode}"]`);
+        if (radio) {
+          radio.checked = true;
+          radio.closest('.rule-group')?.querySelectorAll('.radio-card').forEach(c => c.classList.remove('active'));
+          radio.closest('.radio-card')?.classList.add('active');
+        }
+      }
+
+      const stat = params.get('stat');
+      if (stat === 'fair' || stat === 'stats') {
+        this.selectedStatMode = stat;
+        const radio = document.querySelector(`input[name="statMode"][value="${stat}"]`);
+        if (radio) {
+          radio.checked = true;
+          radio.closest('.rule-group')?.querySelectorAll('.radio-card').forEach(c => c.classList.remove('active'));
+          radio.closest('.radio-card')?.classList.add('active');
+        }
+      }
+
+      const rule = params.get('rule');
+      if (rule && RULE_DESCRIPTIONS[rule]) {
+        this.selectedRule = rule;
+        const radio = document.querySelector(`input[name="penaltyRule"][value="${rule}"]`);
+        if (radio) {
+          radio.checked = true;
+          radio.closest('.rule-group')?.querySelectorAll('.radio-card').forEach(c => c.classList.remove('active'));
+          radio.closest('.radio-card')?.classList.add('active');
+        }
+      }
+
+      const dist = parseInt(params.get('dist'), 10);
+      if ([1000, 1600, 2400].includes(dist)) {
+        this.selectedDistance = dist;
+        document.querySelectorAll('.distance-btn').forEach(btn => {
+          btn.classList.toggle('active', parseInt(btn.dataset.distance, 10) === dist);
+        });
+      }
+
+      const seedParam = params.get('seed');
+      if (seedParam && this.customSeedInput) {
+        this.customSeedInput.value = seedParam.slice(0, 7).toUpperCase();
+      }
+
+      this.updateCostEstimate();
+    } catch (e) {}
+  }
+
+  shareCurrentSetupUrl() {
+    const url = new URL(window.location.href);
+    url.search = '';
+    if (this.participants.length > 0) {
+      url.searchParams.set('members', this.participants.map(p => p.name).join(','));
+    }
+    url.searchParams.set('mode', this.selectedGameMode);
+    url.searchParams.set('stat', this.selectedStatMode);
+    url.searchParams.set('rule', this.selectedRule);
+    url.searchParams.set('dist', String(this.selectedDistance));
+    if (this.customSeedInput && this.customSeedInput.value.trim()) {
+      url.searchParams.set('seed', this.customSeedInput.value.trim().toUpperCase());
+    }
+
+    const shareUrl = url.toString();
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      this.showToast('🔗 현재 참가자 명단 & 룰 설정 링크가 클립보드에 복사되었습니다!');
+    }).catch(() => {
+      prompt('아래 링크를 복사하여 동료들에게 공유하세요:', shareUrl);
+    });
+    sound.playClick();
   }
 
   saveParticipants() {
@@ -155,14 +295,14 @@ class OfficeDerbyApp {
 
     if (this.customPresets.length === 0) {
       this.presetChipsContainer.innerHTML = `
-        <span style="font-size: 11px; color: var(--text-muted);">저장된 프리셋이 없습니다.</span>
+        <span style="font-size: 11px; color: var(--text-muted);">저장된 프리셋이 없습니다. 명단 등록 후 [현재 명단 저장]을 눌러보세요!</span>
       `;
       return;
     }
 
     this.presetChipsContainer.innerHTML = this.customPresets.map((preset, idx) => `
-      <div class="preset-chip" data-id="${preset.id || idx}">
-        <span class="preset-chip-title" data-index="${idx}">${preset.name}</span>
+      <div class="preset-chip" data-id="${escapeHtml(preset.id || idx)}">
+        <span class="preset-chip-title" data-index="${idx}">${escapeHtml(preset.name)}</span>
         <button type="button" class="preset-chip-del" data-index="${idx}" title="프리셋 삭제">✕</button>
       </div>
     `).join('');
@@ -191,7 +331,7 @@ class OfficeDerbyApp {
   applyPreset(preset) {
     if (!preset || !preset.members) return;
 
-    this.participants = preset.members.map((name, idx) => {
+    this.participants = preset.members.slice(0, 12).map((name, idx) => {
       const color = HORSE_COLORS[idx % HORSE_COLORS.length];
       const nickname = OFFICE_NICKNAMES[idx % OFFICE_NICKNAMES.length];
       const defaultHorse = this.stableHorses[idx % this.stableHorses.length];
@@ -201,9 +341,10 @@ class OfficeDerbyApp {
 
       return {
         id: idx + 1,
-        name,
+        name: String(name).slice(0, 12),
         nickname,
         horseName,
+        drinkId: 'random',
         color,
         strategy,
         stats
@@ -214,6 +355,11 @@ class OfficeDerbyApp {
     this.saveParticipants();
     this.showToast(`'${preset.name}' 명단 및 경주마가 불러와졌습니다.`);
     sound.playClick();
+  }
+
+  populateSampleTeam() {
+    const sampleMembers = ['김팀장', '이책임', '박선임', '최대리', '정사원', '강인턴'];
+    this.applyPreset({ name: '오피스 샘플 6인', members: sampleMembers });
   }
 
   bindEvents() {
@@ -302,6 +448,17 @@ class OfficeDerbyApp {
       });
     });
 
+    // 5.5. 능력치 밸런스 모드 (공정 추첨 vs 능력치 전략전)
+    document.querySelectorAll('input[name="statMode"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        this.selectedStatMode = e.target.value;
+        const parentRuleGroup = e.target.closest('.rule-group');
+        parentRuleGroup.querySelectorAll('.radio-card').forEach(card => card.classList.remove('active'));
+        e.target.closest('.radio-card').classList.add('active');
+        sound.playClick();
+      });
+    });
+
     // 6. 벌칙 룰 선택 라디오 카드
     document.querySelectorAll('input[name="penaltyRule"]').forEach(radio => {
       radio.addEventListener('change', (e) => {
@@ -324,6 +481,16 @@ class OfficeDerbyApp {
       });
     });
 
+    // 7.5. 기상 컨디션 선택 버튼
+    document.querySelectorAll('.weather-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.weather-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.selectedWeather = btn.dataset.weather || 'sunny';
+        sound.playClick();
+      });
+    });
+
     // 8. 커피 메뉴 체크박스
     this.randomCoffeeMenuCheck.addEventListener('change', (e) => {
       this.includeCoffeeMenu = e.target.checked;
@@ -337,40 +504,26 @@ class OfficeDerbyApp {
         this.participantInput.focus();
         return;
       }
-      this.startRace();
+      const customCode = this.customSeedInput ? this.customSeedInput.value.trim() : '';
+      const parsedSeed = customCode ? codeToSeed(customCode) : null;
+      this.startRace(parsedSeed);
     });
 
-    // 10. 레이스 컨트롤
+    // 10. 레이스 카메라 & 재생 컨트롤
+    document.querySelectorAll('.cam-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.cam || 'lead';
+        this.setCameraMode(mode);
+        sound.playClick();
+      });
+    });
+
     this.pauseRaceBtn.addEventListener('click', () => {
-      if (!this.engine) return;
-      if (this.engine.isPaused) {
-        this.engine.resume();
-        this.pauseRaceBtn.innerHTML = '⏸️ 일시정지';
-        this.pauseRaceBtn.classList.remove('active');
-      } else {
-        this.engine.pause();
-        this.pauseRaceBtn.innerHTML = '▶️ 재개';
-        this.pauseRaceBtn.classList.add('active');
-      }
-      sound.playClick();
+      this.togglePauseRace();
     });
 
     this.speedRaceBtn.addEventListener('click', () => {
-      if (this.timeScale === 1.0) {
-        this.timeScale = 1.5;
-        this.speedRaceBtn.innerHTML = '⏩ 1.5x';
-        this.speedRaceBtn.classList.add('active');
-      } else if (this.timeScale === 1.5) {
-        this.timeScale = 2.0;
-        this.speedRaceBtn.innerHTML = '⚡️ 2.0x';
-        this.speedRaceBtn.classList.add('active');
-      } else {
-        this.timeScale = 1.0;
-        this.speedRaceBtn.innerHTML = '⏩ 1.0x';
-        this.speedRaceBtn.classList.remove('active');
-      }
-      if (this.engine) this.engine.setTimeScale(this.timeScale);
-      sound.playClick();
+      this.cycleRaceSpeed();
     });
 
     this.skipRaceBtn.addEventListener('click', () => {
@@ -380,13 +533,48 @@ class OfficeDerbyApp {
       }
     });
 
-    // 11. 사운드 토글
+    // 11. 사운드 토글 & AI 엔진 상태 & 설정 공유 & 명예의 전당
+    if (this.aiEngineStatusBtn) {
+      this.aiEngineStatusBtn.addEventListener('click', () => {
+        this.handleAIEngineStatusClick();
+      });
+    }
+
     this.soundToggleBtn.addEventListener('click', () => {
-      this.isMuted = !this.isMuted;
-      sound.setMute(this.isMuted);
-      this.soundToggleBtn.innerHTML = this.isMuted ? '🔇' : '🔊';
-      this.soundToggleBtn.classList.toggle('active', this.isMuted);
+      this.toggleMute();
     });
+
+    if (this.shareSetupBtn) {
+      this.shareSetupBtn.addEventListener('click', () => {
+        this.shareCurrentSetupUrl();
+      });
+    }
+
+    if (this.hallOfFameBtn) {
+      this.hallOfFameBtn.addEventListener('click', () => {
+        this.openHallOfFameModal();
+      });
+    }
+    if (this.closeHallOfFameBtn) {
+      this.closeHallOfFameBtn.addEventListener('click', () => {
+        this.hallOfFameModal.classList.remove('active');
+      });
+    }
+    if (this.clearHallOfFameBtn) {
+      this.clearHallOfFameBtn.addEventListener('click', () => {
+        if (confirm('누적된 명예의 전당 전적과 커피 결제 기록을 모두 초기화하시겠습니까?')) {
+          this.hallOfFameStats = StatsManager.clearStats();
+          this.updateHallOfFameBadge();
+          this.renderHallOfFameContent();
+          this.showToast('전적 기록이 초기화되었습니다.');
+        }
+      });
+    }
+    if (this.hallOfFameModal) {
+      this.hallOfFameModal.addEventListener('click', (e) => {
+        if (e.target === this.hallOfFameModal) this.hallOfFameModal.classList.remove('active');
+      });
+    }
 
     // 12. 도움말 모달
     this.helpBtn.addEventListener('click', () => {
@@ -404,9 +592,26 @@ class OfficeDerbyApp {
       this.copyFormattedResultToClipboard();
     });
 
+    if (this.downloadReceiptBtn) {
+      this.downloadReceiptBtn.addEventListener('click', () => {
+        if (!this.cachedResultData) return;
+        ReceiptExporter.exportAsPNG(this.cachedResultData.receiptExportPayload);
+        this.showToast('🖼️ 고해상도 감열지 영수증 PNG 이미지가 저장되었습니다!');
+        sound.playClick();
+      });
+    }
+
+    if (this.replaySameSeedBtn) {
+      this.replaySameSeedBtn.addEventListener('click', () => {
+        const lastSeed = this.cachedResultData ? this.cachedResultData.seed : null;
+        this.resultModal.classList.remove('active');
+        this.startRace(lastSeed);
+      });
+    }
+
     this.rematchBtn.addEventListener('click', () => {
       this.resultModal.classList.remove('active');
-      this.startRace();
+      this.startRace(null);
     });
 
     this.backToSetupBtn.addEventListener('click', () => {
@@ -414,6 +619,145 @@ class OfficeDerbyApp {
       this.switchView('setup');
       sound.stopGallopRhythm();
     });
+
+    // 14. 글로벌 키보드 단축키 (레이스 화면 및 모달 제어)
+    window.addEventListener('keydown', (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'Escape') {
+        this.helpModal?.classList.remove('active');
+        this.horseDraftModal?.classList.remove('active');
+        this.hallOfFameModal?.classList.remove('active');
+        return;
+      }
+
+      if (e.key.toLowerCase() === 'm') {
+        this.toggleMute();
+        return;
+      }
+
+      // 레이스 진행 중 단축키
+      if (!this.raceView.classList.contains('active') || !this.engine) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        this.togglePauseRace();
+      } else if (e.key.toLowerCase() === 'c') {
+        const order = ['lead', 'tail', 'pack'];
+        const nextCam = order[(order.indexOf(this.cameraMode) + 1) % order.length];
+        this.setCameraMode(nextCam);
+        sound.playClick();
+      } else if (e.key === '1') {
+        this.setRaceSpeed(1.0);
+      } else if (e.key === '2') {
+        this.setRaceSpeed(1.5);
+      } else if (e.key === '3') {
+        this.setRaceSpeed(2.0);
+      } else if (e.key.toLowerCase() === 's') {
+        if (this.engine.isRunning && !this.engine.isFinished) {
+          this.engine.fastForwardToEnd();
+          sound.playClick();
+        }
+      }
+    });
+  }
+
+  toggleMute() {
+    this.isMuted = !this.isMuted;
+    sound.setMute(this.isMuted);
+    this.soundToggleBtn.innerHTML = this.isMuted ? '🔇' : '🔊';
+    this.soundToggleBtn.classList.toggle('active', this.isMuted);
+  }
+
+  setCameraMode(mode) {
+    this.cameraMode = mode;
+    if (this.renderer) this.renderer.setCameraMode(mode);
+    document.querySelectorAll('.cam-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.cam === mode);
+    });
+  }
+
+  togglePauseRace() {
+    if (!this.engine || this.engine.isFinished) return;
+    if (this.engine.isPaused) {
+      this.engine.resume();
+      this.pauseRaceBtn.innerHTML = '⏸️ 일시정지';
+      this.pauseRaceBtn.classList.remove('active');
+      sound.startGallopRhythm();
+    } else {
+      this.engine.pause();
+      this.pauseRaceBtn.innerHTML = '▶️ 재개';
+      this.pauseRaceBtn.classList.add('active');
+      sound.stopGallopRhythm();
+    }
+    sound.playClick();
+  }
+
+  cycleRaceSpeed() {
+    if (this.timeScale === 1.0) this.setRaceSpeed(1.5);
+    else if (this.timeScale === 1.5) this.setRaceSpeed(2.0);
+    else this.setRaceSpeed(1.0);
+    sound.playClick();
+  }
+
+  setRaceSpeed(scale) {
+    this.timeScale = scale;
+    if (scale === 1.0) {
+      this.speedRaceBtn.innerHTML = '⏩ 1.0x';
+      this.speedRaceBtn.classList.remove('active');
+    } else if (scale === 1.5) {
+      this.speedRaceBtn.innerHTML = '⏩ 1.5x';
+      this.speedRaceBtn.classList.add('active');
+    } else {
+      this.speedRaceBtn.innerHTML = '⚡️ 2.0x';
+      this.speedRaceBtn.classList.add('active');
+    }
+    if (this.engine) this.engine.setTimeScale(this.timeScale);
+  }
+
+  updateAIEngineBadge() {
+    if (!this.aiEngineStatusBtn) return;
+    const status = aiEngine.getStatus();
+    if (this.aiEngineStatusText) {
+      this.aiEngineStatusText.textContent = status.shortLabel;
+    }
+    if (this.aiEngineStatusDot) {
+      this.aiEngineStatusDot.textContent = status.badgeState === 'ready' ? '🟢' : '🧠';
+    }
+    this.aiEngineStatusBtn.classList.toggle('ready', status.badgeState === 'ready');
+    this.aiEngineStatusBtn.title = status.detailLabel;
+  }
+
+  async handleAIEngineStatusClick() {
+    const status = aiEngine.getStatus();
+    if (status.badgeState === 'ready') {
+      this.showToast(`🟢 ${status.detailLabel} (추론 ${status.telemetry.llmCalls}회 · 최근 지연 ${status.telemetry.lastLatencyMs}ms)`);
+      sound.playClick();
+      return;
+    }
+
+    await AILoader.run({
+      title: '브라우저 온디바이스 LLM 신경망 활성화 중...',
+      subtitle: 'Chrome Built-in Gemini Nano (LanguageModel) 또는 WebGPU Qwen2.5-0.5B-Instruct 로드',
+      duration: 500,
+      logs: [
+        { progress: 15, text: '[DETECT] Checking globalThis.LanguageModel (Gemini Nano) availability...' },
+        { progress: 100, text: '[READY] On-Device AI Engine synchronized' }
+      ],
+      onComplete: async ({ onProgress }) => {
+        try {
+          await aiEngine.loadWebLLM(onProgress);
+          const updated = aiEngine.getStatus();
+          this.updateAIEngineBadge();
+          this.showToast(`🚀 ${updated.detailLabel} 가동 완료!`);
+        } catch (_) {
+          this.updateAIEngineBadge();
+          this.showToast('💡 오프라인/보안 환경 감지: 초고속 온디바이스 NLG 엔진으로 작동합니다.');
+        }
+      }
+    });
+    sound.playClick();
   }
 
   async rerollAllAINicknames() {
@@ -427,27 +771,30 @@ class OfficeDerbyApp {
     const participantNames = this.participants.map(p => p.name).join(', ');
     await AILoader.run({
       title: '온디바이스 AI 사내 별명 신경망 생성 중...',
-      subtitle: `참가자 [${participantNames}] 맞춤형 페르소나 및 별명 합성`,
-      duration: 850,
+      subtitle: `참가자 [${participantNames}] 맞춤형 페르소나 및 별명 합성 (${aiEngine.getStatus().shortLabel})`,
+      duration: 600,
       logs: [
-        { progress: 20, text: `[NPU] Chrome Built-in AI / Quantized Neural Engine Activated` },
+        { progress: 20, text: `[AI] Engine: ${aiEngine.getStatus().detailLabel}` },
         { progress: 45, text: `[ANALYSIS] Analyzing office persona for ${this.participants.length} racers...` },
-        { progress: 75, text: `[SYNTHESIS] Generating comedic office nicknames & token mapping...` },
         { progress: 100, text: `[COMPLETE] Successfully generated ${this.participants.length} AI nicknames` }
       ],
-      onComplete: async () => {
+      onComplete: async ({ onProgress }) => {
+        await aiEngine.ensureSession(onProgress);
         for (let i = 0; i < this.participants.length; i++) {
           const p = this.participants[i];
           const stratName = p.strategy ? p.strategy.name : '돌진';
-          p.nickname = await aiEngine.generateNickname(p.name, stratName);
+          p.nickname = await aiEngine.generateNickname(p.name, stratName, { forceFresh: true });
+          const pct = Math.round(50 + ((i + 1) / this.participants.length) * 45);
+          onProgress(pct, `[SYNTHESIS] ${p.name} (${stratName}) ➔ #${p.nickname}`);
         }
         this.renderParticipantList();
         this.saveParticipants();
+        this.updateAIEngineBadge();
       }
     });
 
     AILoader.setButtonLoading(this.aiRerollNicknamesBtn, false);
-    this.showToast('✨ 모든 참가자의 AI 별명이 생성되었습니다!');
+    this.showToast('✨ 모든 참가자의 AI 별명이 새롭게 생성되었습니다!');
     sound.playClick();
   }
 
@@ -468,6 +815,7 @@ class OfficeDerbyApp {
       name: name.slice(0, 12),
       nickname: aiNick,
       horseName: defaultHorse ? defaultHorse.name : `${name}의 명마`,
+      drinkId: 'random',
       color: color,
       strategy: strategy,
       stats: defaultHorse ? { ...defaultHorse.stats } : HorseGenerator.generateBalancedStats()
@@ -493,6 +841,23 @@ class OfficeDerbyApp {
     sound.playClick();
   }
 
+  cycleParticipantDrink(index) {
+    const p = this.participants[index];
+    if (!p) return;
+
+    const drinkOptions = ['random', ...COFFEE_MENUS.map(m => m.id)];
+    const curIdx = drinkOptions.indexOf(p.drinkId || 'random');
+    const nextId = drinkOptions[(curIdx + 1) % drinkOptions.length];
+    p.drinkId = nextId;
+
+    this.renderParticipantList();
+    this.saveParticipants();
+    const menuObj = COFFEE_MENUS.find(m => m.id === nextId);
+    const label = menuObj ? `${menuObj.shortName} (${menuObj.price})` : '🎲 랜덤 메뉴';
+    this.showToast(`☕️ [${p.name}] 희망 음료: ${label}`);
+    sound.playClick();
+  }
+
   removeParticipant(index) {
     this.participants.splice(index, 1);
     this.participants.forEach((p, idx) => {
@@ -504,14 +869,23 @@ class OfficeDerbyApp {
   }
 
   renderParticipantList() {
+    if (this.participantCountEl) {
+      this.participantCountEl.textContent = `${this.participants.length}명`;
+    }
+
     if (this.participants.length === 0) {
       this.participantListEl.innerHTML = `
-        <div style="text-align: center; padding: 36px 14px; color: var(--text-muted); font-size: 13px;">
-          <div style="font-size: 28px; margin-bottom: 8px; opacity: 0.8;">🏇</div>
+        <div style="text-align: center; padding: 32px 14px; color: var(--text-muted); font-size: 13px;">
+          <div style="font-size: 28px; margin-bottom: 8px; opacity: 0.85;">🏇</div>
           <div style="font-size: 14px; font-weight: 700; color: #CBD5E1; margin-bottom: 4px;">등록된 참가자가 없습니다</div>
-          <div style="font-size: 12px; color: #94A3B8;">상단 입력창에 팀원 이름을 입력하거나 일괄 등록해주세요.</div>
+          <div style="font-size: 12px; color: #94A3B8;">상단 입력창에 팀원 이름을 입력하거나 아래 버튼으로 즉시 체험해보세요!</div>
+          <button type="button" id="emptySampleTeamBtn" class="empty-sample-btn">⚡️ 샘플 6인(김팀장~강인턴) 즉시 투입</button>
         </div>
       `;
+      const sampleBtn = document.getElementById('emptySampleTeamBtn');
+      if (sampleBtn) {
+        sampleBtn.addEventListener('click', () => this.populateSampleTeam());
+      }
       this.updateCostEstimate();
       return;
     }
@@ -520,6 +894,8 @@ class OfficeDerbyApp {
       const strat = p.strategy || AI_STRATEGIES[idx % AI_STRATEGIES.length];
       const stats = p.stats || { speed: 70, accel: 70, stamina: 70, luck: 70, intellect: 70 };
       const horseName = p.horseName || `${p.name}의 말`;
+      const menuObj = COFFEE_MENUS.find(m => m.id === p.drinkId);
+      const drinkLabel = menuObj ? `☕️ ${menuObj.shortName}` : '🎲 음료랜덤';
 
       return `
         <div class="participant-item">
@@ -529,16 +905,19 @@ class OfficeDerbyApp {
             </div>
             <div class="horse-meta">
               <div class="horse-name-row">
-                <span class="horse-name">${p.name}</span>
-                <button type="button" class="horse-draft-badge" data-index="${idx}" title="전용 경주마 선택 및 능력치 보기" style="background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.35); color: var(--accent-cyan); font-size: 11px; padding: 2px 7px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-                  🏇 ${horseName} <span style="font-size: 10px; color: var(--text-muted);">(⚡️${stats.speed} 🚀${stats.accel} 🔋${stats.stamina})</span>
+                <span class="horse-name">${escapeHtml(p.name)}</span>
+                <button type="button" class="horse-draft-badge" data-index="${idx}" title="전용 경주마 선택 및 능력치 보기">
+                  🏇 ${escapeHtml(horseName)} <span style="font-size: 10px; color: var(--text-muted);">(⚡️${stats.speed} 🚀${stats.accel} 🔋${stats.stamina})</span>
                 </button>
-                <button type="button" class="horse-ai-btn" data-index="${idx}" title="${strat.desc}">
-                  ${strat.icon} ${strat.name}
+                <button type="button" class="horse-ai-btn" data-index="${idx}" title="${escapeHtml(strat.desc)}">
+                  ${strat.icon} ${escapeHtml(strat.name)}
+                </button>
+                <button type="button" class="horse-drink-btn" data-index="${idx}" title="클릭하여 희망 음료 변경 (영수증 정산에 반영)">
+                  ${escapeHtml(drinkLabel)}
                 </button>
               </div>
               <div class="horse-sub-row">
-                <span class="horse-nick">#${p.nickname}</span>
+                <span class="horse-nick">#${escapeHtml(p.nickname)}</span>
               </div>
             </div>
           </div>
@@ -547,7 +926,6 @@ class OfficeDerbyApp {
       `;
     }).join('');
 
-    // 이벤트 바인딩
     this.participantListEl.querySelectorAll('.horse-draft-badge').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const index = parseInt(e.currentTarget.dataset.index, 10);
@@ -559,6 +937,13 @@ class OfficeDerbyApp {
       btn.addEventListener('click', (e) => {
         const index = parseInt(e.currentTarget.dataset.index, 10);
         this.cycleHorseAIStrategy(index);
+      });
+    });
+
+    this.participantListEl.querySelectorAll('.horse-drink-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const index = parseInt(e.currentTarget.dataset.index, 10);
+        this.cycleParticipantDrink(index);
       });
     });
 
@@ -577,15 +962,15 @@ class OfficeDerbyApp {
     if (!costTextEl) return;
 
     const count = this.participants.length;
-    const includeMenu = this.randomCoffeeMenuCheck ? this.randomCoffeeMenuCheck.checked : true;
-    const estimated = calculateEstimatedPrice(count, includeMenu);
-    const estimatedTotal = estimated.totalAmount || 0;
-    const unitPrice = estimated.unitPrice || 4500;
-
     if (count === 0) {
       costTextEl.textContent = '참가자를 2명 이상 등록하면 예상 결제 금액이 계산됩니다.';
       return;
     }
+
+    const includeMenu = this.randomCoffeeMenuCheck ? this.randomCoffeeMenuCheck.checked : true;
+    const orderPreview = calculateDetailedOrder(this.participants, includeMenu);
+    const estimatedTotal = orderPreview.totalAmount || 0;
+    const unitPrice = orderPreview.averagePrice || 4500;
 
     let perPersonDesc = '';
     if (this.selectedRule === 'last1') {
@@ -600,7 +985,7 @@ class OfficeDerbyApp {
       perPersonDesc = `(4등 당첨자 ~${estimatedTotal.toLocaleString()}원)`;
     }
 
-    costTextEl.textContent = `참가 ${count}명 × 약 ${unitPrice.toLocaleString()}원 = 총 예상 결제액 ~${estimatedTotal.toLocaleString()}원 ${perPersonDesc}`;
+    costTextEl.textContent = `참가 ${count}명 × 평균 ${unitPrice.toLocaleString()}원 = 총 예상 결제액 ~${estimatedTotal.toLocaleString()}원 ${perPersonDesc}`;
   }
 
   openHorseDraftModal(participantIndex) {
@@ -608,7 +993,7 @@ class OfficeDerbyApp {
     const participant = this.participants[participantIndex];
     if (!participant) return;
 
-    this.draftModalSubtitle.innerHTML = `<strong>[${participant.name}]</strong> 님의 전용 경주마를 선택하거나 새 AI 밸런스마를 분양받으세요.`;
+    this.draftModalSubtitle.innerHTML = `<strong>[${escapeHtml(participant.name)}]</strong> 님의 전용 경주마를 선택하거나 새 AI 밸런스마를 분양받으세요.`;
     this.renderStableGrid();
     this.horseDraftModal.classList.add('active');
     sound.playClick();
@@ -630,39 +1015,39 @@ class OfficeDerbyApp {
               🏇
             </div>
             <div class="horse-card-info">
-              <div class="horse-card-name" title="${horse.name}">${horse.name}</div>
-              <div class="horse-card-title">${horse.title} | ${strat.icon} ${strat.name}</div>
+              <div class="horse-card-name" title="${escapeHtml(horse.name)}">${escapeHtml(horse.name)}</div>
+              <div class="horse-card-title">${escapeHtml(horse.title)} | ${strat.icon} ${escapeHtml(strat.name)}</div>
             </div>
           </div>
 
           <div class="horse-card-lore">
-            "${horse.lore}"
+            "${escapeHtml(horse.lore)}"
           </div>
 
           <div class="stat-bars-container">
             <div class="stat-row">
               <span class="stat-label">⚡️ 최고속도</span>
-              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.speed / 100) * 100}%; background: #EF4444;"></div></div>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${stats.speed}%; background: #EF4444;"></div></div>
               <span class="stat-val">${stats.speed}</span>
             </div>
             <div class="stat-row">
               <span class="stat-label">🚀 가속력</span>
-              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.accel / 100) * 100}%; background: #F59E0B;"></div></div>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${stats.accel}%; background: #F59E0B;"></div></div>
               <span class="stat-val">${stats.accel}</span>
             </div>
             <div class="stat-row">
               <span class="stat-label">🔋 지구력</span>
-              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.stamina / 100) * 100}%; background: #10B981;"></div></div>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${stats.stamina}%; background: #10B981;"></div></div>
               <span class="stat-val">${stats.stamina}</span>
             </div>
             <div class="stat-row">
               <span class="stat-label">🍀 행운</span>
-              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.luck / 100) * 100}%; background: #8B5CF6;"></div></div>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${stats.luck}%; background: #8B5CF6;"></div></div>
               <span class="stat-val">${stats.luck}</span>
             </div>
             <div class="stat-row">
               <span class="stat-label">🧠 지능</span>
-              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${(stats.intellect / 100) * 100}%; background: #06B6D4;"></div></div>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width: ${stats.intellect}%; background: #06B6D4;"></div></div>
               <span class="stat-val">${stats.intellect}</span>
             </div>
           </div>
@@ -704,18 +1089,20 @@ class OfficeDerbyApp {
 
     await AILoader.run({
       title: '온디바이스 AI 350pt 밸런스 경주마 창조 중...',
-      subtitle: '350pt 스탯 예산 최적화 & 사내 아키타입 신경망 합성',
-      duration: 850,
+      subtitle: `350pt 스탯 예산 최적화 & JSON Schema 페르소나 합성 (${aiEngine.getStatus().shortLabel})`,
+      duration: 600,
       logs: [
-        { progress: 20, text: '[NPU] Generative Horse Synthesis Core Loaded' },
+        { progress: 20, text: `[AI] Engine: ${aiEngine.getStatus().detailLabel}` },
         { progress: 50, text: '[BUDGET] Distributing exactly 350 points across 5 stats (Speed/Accel/Stamina/Luck/Intellect)...' },
-        { progress: 80, text: '[PERSONA] Assigning unique AI strategy & office racing name...' },
         { progress: 100, text: '[COMPLETE] High-performance balanced racehorse created' }
       ],
-      onComplete: async () => {
+      onComplete: async ({ onProgress }) => {
+        await aiEngine.ensureSession(onProgress);
         const newHorse = await HorseGenerator.generateAIHorse();
+        onProgress(88, `[SYNTHESIS] Created '${newHorse.name}' (${newHorse.title})`);
         this.stableHorses.unshift(newHorse);
         this.renderStableGrid();
+        this.updateAIEngineBadge();
         this.showToast(`✨ 새 명마 '${newHorse.name}' 이(가) 마구간에 입사했습니다!`);
       }
     });
@@ -733,33 +1120,39 @@ class OfficeDerbyApp {
     AILoader.setButtonLoading(this.aiAutoDraftHorsesBtn, true, 'AI 말 배정 중...');
 
     await AILoader.run({
-      title: '온디바이스 AI 경주마 자동 매칭 & 밸런스 동기화 중...',
-      subtitle: `참가자 ${this.participants.length}인을 위한 최적 350pt 경주마 & 성향 매칭`,
-      duration: 850,
+      title: '온디바이스 AI 경주마 자동 매칭 & 별명 동기화 중...',
+      subtitle: `참가자 ${this.participants.length}인을 위한 최적 350pt 경주마 & 맞춤 페르소나 매칭`,
+      duration: 600,
       logs: [
-        { progress: 25, text: '[STABLE] Shuffling 350pt balanced stable horses...' },
-        { progress: 55, text: `[PAIRING] Matching ${this.participants.length} jockeys with complementary stats...` },
-        { progress: 85, text: '[SYNC] Calibrating racing colors, silks, and AI tendencies...' },
-        { progress: 100, text: '[COMPLETE] All participants matched with balanced racehorses' }
+        { progress: 25, text: `[AI] Engine: ${aiEngine.getStatus().detailLabel}` },
+        { progress: 55, text: `[PAIRING] Analyzing ${this.participants.length} participants & matching complementary 350pt horses...` },
+        { progress: 100, text: '[COMPLETE] All participants matched with balanced racehorses & AI personas' }
       ],
-      onComplete: async () => {
-        // 셔플된 마구간 말들을 각 참가자에게 배정
-        const shuffled = [...this.stableHorses].sort(() => Math.random() - 0.5);
-        this.participants.forEach((p, idx) => {
-          const horse = shuffled[idx % shuffled.length];
-          p.horseName = horse.name;
-          p.strategy = horse.strategy;
-          p.stats = { ...horse.stats };
+      onComplete: async ({ onProgress }) => {
+        await aiEngine.ensureSession(onProgress);
+        const assignments = await aiEngine.recommendHorseDraft(this.participants, this.stableHorses);
+        assignments.forEach((item, idx) => {
+          const p = this.participants[item.participantIndex];
+          if (!p || !item.horse) return;
+          p.horseName = item.horse.name;
+          p.strategy = item.horse.strategy;
+          p.stats = { ...item.horse.stats };
+          p.nickname = item.nickname || p.nickname;
           p.color = HORSE_COLORS[idx % HORSE_COLORS.length];
+          onProgress(
+            Math.round(60 + ((idx + 1) / assignments.length) * 35),
+            `[MATCH] ${p.name} ➔ ${p.horseName} (#${p.nickname})`
+          );
         });
 
         this.renderParticipantList();
         this.saveParticipants();
+        this.updateAIEngineBadge();
       }
     });
 
     AILoader.setButtonLoading(this.aiAutoDraftHorsesBtn, false);
-    this.showToast('🎲 모든 참가자에게 밸런스 경주마가 자동 배정되었습니다!');
+    this.showToast('🎲 모든 참가자에게 AI 맞춤 경주마와 신규 별명이 배정되었습니다!');
     sound.playClick();
   }
 
@@ -774,29 +1167,42 @@ class OfficeDerbyApp {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
-  startRace() {
+  startRace(overrideSeed = null) {
     this.switchView('race');
-    this.timeScale = 1.0;
-    this.speedRaceBtn.innerHTML = '⏩ 1.0x';
-    this.speedRaceBtn.classList.remove('active');
+    this.setRaceSpeed(1.0);
     this.pauseRaceBtn.innerHTML = '⏸️ 일시정지';
     this.pauseRaceBtn.classList.remove('active');
-
-    const modeText = this.selectedGameMode === 'item' ? '🎁 아이템전' : '🏇 스피드전';
-    const distText = this.selectedDistance <= 1000 ? '1000m' : (this.selectedDistance <= 1600 ? '1600m' : '2400m');
-    this.raceDistanceBadge.textContent = `${modeText} (${distText})`;
+    this.setCameraMode('lead');
 
     this.initMiniTrack();
     this.renderer.setHorseCount(this.participants.length);
     this.renderer.reset();
     this.commentator.reset();
 
-    this.engine.setup(this.participants, this.selectedDistance, this.selectedGameMode);
+    this.engine.setup(this.participants, this.selectedDistance, this.selectedGameMode, {
+      seed: overrideSeed,
+      statMode: this.selectedStatMode,
+      weather: this.selectedWeather
+    });
     this.engine.start();
+
+    const modeText = this.selectedGameMode === 'item' ? '🎁 아이템전' : '🏇 스피드전';
+    const statText = this.selectedStatMode === STAT_MODES.STATS ? '🔥능력치전' : '⚖️공정추첨';
+    const distText = this.selectedDistance <= 1000 ? '1000m' : (this.selectedDistance <= 1600 ? '1600m' : '2400m');
+    this.raceDistanceBadge.textContent = `${modeText} · ${statText} (${distText})`;
+
+    const wObj = WEATHER_TYPES[this.engine.weather] || WEATHER_TYPES.sunny;
+    if (this.raceWeatherBadge) {
+      this.raceWeatherBadge.textContent = `${wObj.icon} ${wObj.name}`;
+    }
+    const seedCode = seedToCode(this.engine.seed);
+    if (this.raceSeedBadge) {
+      this.raceSeedBadge.textContent = `SEED #${seedCode}`;
+    }
 
     sound.playGunshot();
     sound.startGallopRhythm();
-    this.commentator.onRaceStart(this.participants.length);
+    this.commentator.onRaceStart(this.participants.length, `${wObj.icon} ${wObj.name}`);
 
     this.lastFrameTime = performance.now();
     if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
@@ -855,29 +1261,37 @@ class OfficeDerbyApp {
 
   renderLiveLeaderboard(horses) {
     const sorted = [...horses].sort((a, b) => a.rank - b.rank);
+    const currentPenaltyTargets = calculatePenaltyHorses(sorted, this.selectedRule);
+    const penaltyIdSet = new Set(currentPenaltyTargets.map(h => h.id));
 
-    this.liveRankList.innerHTML = sorted.map((h, idx) => {
+    if (this.liveDangerSummary && currentPenaltyTargets.length > 0) {
+      const names = currentPenaltyTargets.map(h => h.name).join(', ');
+      this.liveDangerSummary.textContent = `☕️ 현재 당첨위기: ${names}`;
+    }
+
+    this.liveRankList.innerHTML = sorted.map((h) => {
       let badgeClass = '';
       if (h.rank === 1) badgeClass = 'gold';
       else if (h.rank === 2) badgeClass = 'silver';
       else if (h.rank === 3) badgeClass = 'bronze';
-      else if (h.rank === horses.length) badgeClass = 'tail';
+      else if (penaltyIdSet.has(h.id)) badgeClass = 'tail';
 
       const isLead = h.rank === 1;
-      const isTail = h.rank === horses.length;
+      const isTail = penaltyIdSet.has(h.id);
       const distPercent = Math.round(h.progress * 100);
-      const aiIcon = h.strategy ? `<span style="font-size: 11px;" title="${h.strategy.name} (${h.strategy.tag})">${h.strategy.icon}</span>` : '';
-      const heldItemBadge = h.heldItem ? `<span class="held-item-badge" title="보유 중: ${h.heldItem.name}">${h.heldItem.icon}</span>` : '';
+      const aiIcon = h.strategy ? `<span style="font-size: 11px;" title="${escapeHtml(h.strategy.name)} (${escapeHtml(h.strategy.tag)})">${h.strategy.icon}</span>` : '';
+      const heldItemBadge = h.heldItem ? `<span class="held-item-badge" title="보유 중: ${escapeHtml(h.heldItem.name)}">${h.heldItem.icon}</span>` : '';
 
       return `
         <div class="live-rank-item ${isLead ? 'is-lead' : ''} ${isTail ? 'is-tail' : ''}">
           <div class="rank-horse-tag">
             <span class="rank-badge-num ${badgeClass}">#${h.rank}</span>
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${h.color.body};"></span>
-            <span>${h.name}</span>
+            <span>${escapeHtml(h.name)}</span>
             ${aiIcon}
             ${heldItemBadge}
             ${h.shieldActive ? '<span style="font-size: 11px;">🛡️</span>' : ''}
+            ${isTail ? '<span style="font-size: 10px; color: #FDA4AF; font-weight: 800;">☕️위기</span>' : ''}
           </div>
           <div class="rank-meter-val">
             ${h.finished ? '🏁 골인!' : `${distPercent}% (${Math.round(h.distance)}m)`}
@@ -896,26 +1310,40 @@ class OfficeDerbyApp {
     const horseX = startX + (horse ? horse.progress : 0.5) * trackWidthSpan;
     const horseY = this.renderer.trackTop + (horse ? horse.lane : 0) * this.renderer.laneHeight + this.renderer.laneHeight * 0.5;
 
-    // 1. 아이템 사용 시 발동 효과 (쇼크웨이브 + 플로팅 텍스트 + 파티클 폭발)
+    // 1. 아이템 사용 시 발동 효과
     if (type.startsWith('itemUse')) {
       const item = info?.item || horse?.heldItem || { id: 'booster', name: '아이템', icon: '✨' };
       this.renderer.triggerItemUseEffect(horse, item, horseX, horseY);
     }
 
-    // 2. 피격 시 누구의 어떤 아이템에 맞았는지 말 위에 선명한 피격 배지 & 스파크 발생
+    // 2. 피격 시 플로팅 피격 배지 & 스파크 발생
     if (type === 'obstacleHit') {
       this.renderer.triggerItemHitEffect(horse, 'banana', info?.attackerName, horseX, horseY);
     } else if (type === 'missileHit') {
       this.renderer.triggerItemHitEffect(horse, 'missile', info?.attackerName || info?.attacker?.name, horseX, horseY);
     } else if (type === 'lightningHit') {
       this.renderer.triggerItemHitEffect(horse, 'lightning', info?.attackerName || info?.attacker?.name, horseX, horseY);
+    } else if (type === 'approvalHit') {
+      this.renderer.triggerItemHitEffect(horse, 'approval', info?.attackerName || info?.attacker?.name, horseX, horseY);
     } else if (type === 'shieldBlock') {
       this.renderer.triggerItemHitEffect(horse, 'shieldBlock', info?.attackerName || info?.attacker?.name, horseX, horseY);
     }
 
+    // 3. 라스트 스퍼트 구간 진입 시 BGM 템포/키 업!
+    if (type === 'lastSpurtPhase') {
+      sound.setSpurtMode(true);
+    } else if (type === 'photoFinish') {
+      sound.playPhotoFinish();
+    }
+
+    // 4. 사운드 이펙트
     if (type === 'boost' || type === 'itemUseBooster' || type === 'itemUseMagnet') {
       sound.playBoost();
-    } else if (type === 'slip' || type === 'obstacleHit') {
+    } else if (type === 'itemUseEspresso') {
+      sound.playEspresso();
+    } else if (type === 'itemUseApproval') {
+      sound.playApproval();
+    } else if (type === 'slip' || type === 'obstacleHit' || type === 'approvalHit') {
       sound.playSlip();
     } else if (type === 'itemPickup') {
       sound.playItemPickup();
@@ -956,11 +1384,11 @@ class OfficeDerbyApp {
 
     setTimeout(() => {
       sound.playPenaltySound();
-    }, 600);
+    }, 550);
 
     setTimeout(() => {
       this.showResultModal(finalRankings, penaltyHorses);
-    }, 1200);
+    }, 1150);
   }
 
   calculatePenaltyHorses(finalRankings) {
@@ -976,50 +1404,93 @@ class OfficeDerbyApp {
     this.podiumName2.textContent = second ? `${second.name}` : '-';
     this.podiumName3.textContent = third ? `${third.name}` : '-';
 
+    // 포토 피니시 배너 표시
+    if (this.photoFinishBanner) {
+      const pf = this.engine.photoFinishInfo;
+      if (pf) {
+        this.photoFinishBanner.style.display = 'inline-flex';
+        const gapStr = pf.gapSeconds.toFixed(2);
+        if (pf.type === 'tail') {
+          this.photoFinishBanner.textContent = `📸 꼴찌 초접전 포토 피니시! (${pf.survivor.name} vs ${pf.victim.name} · 불과 ${gapStr}초 차이!)`;
+        } else {
+          this.photoFinishBanner.textContent = `📸 1위 결승 초접전 포토 피니시! (${pf.winner.name} vs ${pf.runnerUp.name} · ${gapStr}초 차이!)`;
+        }
+      } else {
+        this.photoFinishBanner.style.display = 'none';
+      }
+    }
+
+    // 경기 MVP 하이라이트 배지 렌더링
+    if (this.mvpAwardsContainer) {
+      const awards = computeRaceMVPs(finalRankings);
+      this.mvpAwardsContainer.innerHTML = awards.map(a => `
+        <div class="mvp-award-card">
+          <span class="mvp-badge-tag">${escapeHtml(a.badge)}</span>
+          <span class="mvp-player-name">${escapeHtml(a.title)}님</span>
+          <span class="mvp-award-desc">${escapeHtml(a.desc)}</span>
+        </div>
+      `).join('');
+    }
+
     const penaltyNames = penaltyHorses.map(h => `${h.name}님`).join(', ');
     this.receiptPayerName.textContent = `${penaltyNames} (결제 확정)`;
 
-    this.receiptRuleDesc.textContent = RULE_DESCRIPTIONS[this.selectedRule] || '커피내기 벌칙';
+    const ruleText = RULE_DESCRIPTIONS[this.selectedRule] || '커피내기 벌칙';
+    this.receiptRuleDesc.textContent = ruleText;
 
+    const seedCode = seedToCode(this.engine.seed);
     const now = new Date();
     const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    this.receiptDate.textContent = `${dateStr} | 주문번호: #${Math.floor(1000 + Math.random() * 9000)}`;
+    this.receiptDate.textContent = `${dateStr} | SEED: #${seedCode}`;
 
-    const totalCount = finalRankings.length;
-    const priceCalculation = calculateEstimatedPrice(totalCount, this.includeCoffeeMenu);
-    const totalEstimatedPrice = priceCalculation.totalAmount;
-    const pickedMenu = priceCalculation.menu;
+    // 시드 파생 난수로 커피 메뉴 결정 (같은 시드면 추천 메뉴도 동일!)
+    const menuRng = createRng(deriveSeed(this.engine.seed, 777));
+    const detailedOrder = calculateDetailedOrder(finalRankings, this.includeCoffeeMenu, menuRng);
+    const totalEstimatedPrice = detailedOrder.totalAmount;
+    const perPayerAmount = penaltyHorses.length > 0 ? Math.round(totalEstimatedPrice / penaltyHorses.length) : totalEstimatedPrice;
 
-    let menuHtml = '';
-    if (this.includeCoffeeMenu) {
-      menuHtml = `
-        <div class="receipt-row">
-          <span>${pickedMenu.name}</span>
-          <span>${totalCount}잔</span>
-        </div>
-        <div class="receipt-row" style="font-size: 11px; color: #64748B;">
-          <span>* 추천 이유: ${pickedMenu.note}</span>
-          <span>${pickedMenu.price}/잔</span>
-        </div>
-      `;
-    } else {
-      menuHtml = `
-        <div class="receipt-row">
-          <span>${pickedMenu.name}</span>
-          <span>총 ${totalCount}잔</span>
-        </div>
-      `;
-    }
+    this.receiptMenuItems.innerHTML = detailedOrder.items.map(item => `
+      <div class="receipt-row">
+        <span>${escapeHtml(item.menu.name)}</span>
+        <span>${item.count}잔 / ${item.subtotal.toLocaleString()}원</span>
+      </div>
+      <div class="receipt-row" style="font-size: 11px; color: #64748B;">
+        <span>└ 주문: ${escapeHtml(item.names.join(', '))}</span>
+        <span>${escapeHtml(item.menu.price)}/잔</span>
+      </div>
+    `).join('');
 
-    this.receiptMenuItems.innerHTML = menuHtml;
     this.receiptTotalAmount.textContent = `${totalEstimatedPrice.toLocaleString()}원`;
 
-    // 온디바이스 AI 특종 기사 1면 비동기 생성 및 타이핑 로더
+    if (this.receiptPerPersonRow && this.receiptPerPersonAmount) {
+      if (penaltyHorses.length > 1) {
+        this.receiptPerPersonRow.style.display = 'flex';
+        this.receiptPerPersonAmount.textContent = `1인당 약 ${perPayerAmount.toLocaleString()}원 (${penaltyHorses.length}인 분담)`;
+      } else {
+        this.receiptPerPersonRow.style.display = 'none';
+      }
+    }
+
+    // 명예의 전당 누적 전적 기록 저장
+    this.hallOfFameStats = StatsManager.recordRaceResult(this.hallOfFameStats, {
+      finalRankings,
+      penaltyHorses,
+      totalAmount: totalEstimatedPrice,
+      ruleDesc: ruleText,
+      seedCode,
+      gameMode: this.selectedGameMode,
+      distance: this.selectedDistance
+    });
+    StatsManager.saveStats(this.hallOfFameStats);
+    this.updateHallOfFameBadge();
+
+    // 온디바이스 AI 특종 기사 1면 실시간 스트리밍 생성 (LanguageModel.promptStreaming 지원)
     if (this.aiArticleContent) {
+      const aiStatus = aiEngine.getStatus();
       this.aiArticleContent.innerHTML = `
         <div class="ai-reporter-loading">
           <div class="ai-reporter-badge">
-            <span class="ai-live-dot"></span> 🧠 온디바이스 AI 특파원이 경기 데이터를 실시간 분석 중...
+            <span class="ai-live-dot"></span> 🧠 온디바이스 AI 특파원(${escapeHtml(aiStatus.shortLabel)})이 경기 텔레메트리를 분석 중...
           </div>
           <div class="ai-skeleton-lines">
             <div class="ai-skeleton-line" style="width: 95%;"></div>
@@ -1029,35 +1500,62 @@ class OfficeDerbyApp {
         </div>
       `;
 
-      aiEngine.generatePostRaceArticle(winner, penaltyHorses, totalCount, this.receiptRuleDesc.textContent, totalEstimatedPrice).then(async (article) => {
-        if (!this.aiArticleContent) return;
-        this.aiArticleContent.innerHTML = `<span class="ai-article-text"></span><span class="ai-cursor">▌</span>`;
-        const textSpan = this.aiArticleContent.querySelector('.ai-article-text');
-        
-        for (let i = 0; i < article.length; i++) {
-          if (!this.aiArticleContent) break;
-          textSpan.textContent += article[i];
-          if (i % 2 === 0) {
-            await new Promise(r => setTimeout(r, 16));
+      const wObj = WEATHER_TYPES[this.engine.weather] || WEATHER_TYPES.sunny;
+      const raceContext = {
+        photoFinishInfo: this.engine.photoFinishInfo,
+        weatherName: wObj.name
+      };
+
+      let streamStarted = false;
+      let textSpan = null;
+
+      aiEngine.streamPostRaceArticle(
+        winner,
+        penaltyHorses,
+        finalRankings.length,
+        ruleText,
+        totalEstimatedPrice,
+        raceContext,
+        (delta) => {
+          if (!this.aiArticleContent) return;
+          if (!streamStarted) {
+            streamStarted = true;
+            this.aiArticleContent.textContent = '';
+            textSpan = document.createElement('span');
+            textSpan.className = 'ai-article-text';
+            const cursorSpan = document.createElement('span');
+            cursorSpan.className = 'ai-cursor';
+            cursorSpan.textContent = '▌';
+            this.aiArticleContent.appendChild(textSpan);
+            this.aiArticleContent.appendChild(cursorSpan);
+          }
+          if (textSpan) {
+            textSpan.textContent += delta;
           }
         }
-        
-        const cursor = this.aiArticleContent.querySelector('.ai-cursor');
-        if (cursor) cursor.remove();
+      ).then((finalText) => {
+        if (!this.aiArticleContent) return;
+        if (!streamStarted) {
+          this.aiArticleContent.textContent = finalText;
+        } else {
+          const cursor = this.aiArticleContent.querySelector('.ai-cursor');
+          if (cursor) cursor.remove();
+        }
+        this.updateAIEngineBadge();
       });
     }
 
-    const randomFootnote = FUNNY_RECEIPT_NOTES[Math.floor(Math.random() * FUNNY_RECEIPT_NOTES.length)];
+    const randomFootnote = FUNNY_RECEIPT_NOTES[Math.floor(menuRng() * FUNNY_RECEIPT_NOTES.length)];
     this.receiptFooterNotes.innerHTML = `
-      ${randomFootnote}<br>
-      * 승패에 승복하고 쿨하게 결제하는 멋진 팀원이 됩시다 ☕️
+      ${escapeHtml(randomFootnote)}<br>
+      * 검증 시드 코드: <strong>#${escapeHtml(seedCode)}</strong>
     `;
 
     this.modalRankList.innerHTML = finalRankings.map(h => {
       const isWinner = h.rank === 1;
       const isPenalty = penaltyHorses.some(ph => ph.id === h.id);
-      const timeStr = `${h.finishTime ? h.finishTime.toFixed(1) : '-'}초`;
-      const stratTag = h.strategy ? `<span style="font-size: 10px; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 10px; color: var(--text-secondary);">${h.strategy.icon} ${h.strategy.name}</span>` : '';
+      const timeStr = `${h.finishTime ? h.finishTime.toFixed(2) : '-'}초`;
+      const stratTag = h.strategy ? `<span style="font-size: 10px; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 10px; color: var(--text-secondary);">${h.strategy.icon} ${escapeHtml(h.strategy.name)}</span>` : '';
 
       let badgeIcon = `#${h.rank}`;
       if (h.rank === 1) badgeIcon = '🥇 1위';
@@ -1067,11 +1565,11 @@ class OfficeDerbyApp {
 
       return `
         <div class="modal-rank-row ${isWinner ? 'winner' : ''} ${isPenalty ? 'loser' : ''}">
-          <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <span style="font-weight: 700; font-size: 12px; color: ${isWinner ? 'var(--accent-gold)' : (isPenalty ? 'var(--accent-rose)' : 'inherit')}">${badgeIcon}</span>
-            <span style="font-weight: 600;">${h.name}</span>
+            <span style="font-weight: 600;">${escapeHtml(h.name)}</span>
             ${stratTag}
-            <span style="font-size: 11px; color: var(--text-muted);">(${h.nickname})</span>
+            <span style="font-size: 11px; color: var(--text-muted);">(#${escapeHtml(h.nickname)})</span>
           </div>
           <div style="font-family: monospace; font-size: 12px; font-weight: 600;">
             ${timeStr}
@@ -1081,50 +1579,171 @@ class OfficeDerbyApp {
     }).join('');
 
     this.resultModal.classList.add('active');
-    this.cachedResultData = { finalRankings, penaltyHorses, totalEstimatedPrice };
+    this.cachedResultData = {
+      finalRankings,
+      penaltyHorses,
+      winner,
+      penaltyNames,
+      totalEstimatedPrice,
+      perPayerAmount,
+      seed: this.engine.seed,
+      seedCode,
+      detailedOrder,
+      receiptExportPayload: {
+        payerNames: penaltyNames,
+        ruleDesc: ruleText,
+        dateStr,
+        seedCode,
+        orderItems: detailedOrder.items,
+        totalAmount: totalEstimatedPrice,
+        perPayerAmount,
+        payerCount: penaltyHorses.length,
+        totalCount: finalRankings.length,
+        winnerName: winner ? winner.name : '-',
+        footnote: randomFootnote
+      }
+    };
   }
 
   copyFormattedResultToClipboard() {
     if (!this.cachedResultData) return;
 
+    const {
+      finalRankings,
+      penaltyHorses,
+      winner,
+      penaltyNames,
+      totalEstimatedPrice,
+      perPayerAmount,
+      seedCode,
+      detailedOrder
+    } = this.cachedResultData;
+
     const rankingText = finalRankings.map(h => {
       const isPenalty = penaltyHorses.some(ph => ph.id === h.id);
       const mark = h.rank === 1 ? '👑' : (isPenalty ? '☕️' : '▫️');
       const strat = h.strategy ? ` [AI:${h.strategy.name}]` : '';
-      return `${mark} ${h.rank}위: ${h.name} (#${h.nickname})${strat} (${h.finishTime ? h.finishTime.toFixed(1) : '-'}초)`;
+      return `${mark} ${h.rank}위: ${h.name} (#${h.nickname})${strat} (${h.finishTime ? h.finishTime.toFixed(2) : '-'}초)`;
     }).join('\n');
 
+    const orderText = detailedOrder?.items
+      ? detailedOrder.items.map(it => `- ${it.menu.name}: ${it.count}잔 (${it.names.join(', ')})`).join('\n')
+      : '';
+
+    const shareSplitNote = penaltyHorses.length > 1
+      ? ` (1인당 약 ${perPayerAmount.toLocaleString()}원씩)`
+      : '';
+
     const aiArticleSnippet = this.aiArticleContent && this.aiArticleContent.textContent
-      ? `\n📰 ${this.aiArticleContent.textContent.split('\n')[0]}\n`
+      ? `\n${this.aiArticleContent.textContent.split('\n')[0]}\n`
       : '';
 
     const formattedMessage = `
 [오피스 더비] 오늘의 커피내기 경마 결과 발표! 🏇☕️
-==========================================
-${aiArticleSnippet}
-👑 1위 (명예의 전당): ${winner.name}님!
+==========================================${aiArticleSnippet}
+👑 1위 (명예의 전당): ${winner ? winner.name : '-'}님!
 🎯 커피 결제자 (당첨): ${penaltyNames} ☕️
 📌 벌칙 룰: ${this.receiptRuleDesc.textContent}
-💰 예상 결제 금액: 약 ${totalEstimatedPrice.toLocaleString()}원 (${finalRankings.length}잔)
+💰 예상 결제 금액: 약 ${totalEstimatedPrice.toLocaleString()}원 (${finalRankings.length}잔)${shareSplitNote}
+🔐 공정성 검증 시드: #${seedCode}
 ==========================================
-📊 전체 순위:
+☕️ 주문 음료 내역:
+${orderText}
+------------------------------------------
+📊 전체 완주 순위:
 ${rankingText}
 ------------------------------------------
 * ${penaltyNames} 영수증 지참하여 카페로 출발해주세요! 🏃‍♂️💨
     `.trim();
 
     navigator.clipboard.writeText(formattedMessage).then(() => {
-      this.showToast('📋 슬랙/카톡 공유용 결과가 복사되었습니다!');
-    }).catch(err => {
-      console.warn('Clipboard write failed, using fallback', err);
+      this.showToast('📋 슬랙/카톡 공유용 결과가 클립보드에 복사되었습니다!');
+    }).catch(() => {
       const textarea = document.createElement('textarea');
       textarea.value = formattedMessage;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
       document.body.removeChild(textarea);
-      this.showToast('📋 슬랙/카톡 공유용 결과가 복사되었습니다!');
+      this.showToast('📋 슬랙/카톡 공유용 결과가 클립보드에 복사되었습니다!');
     });
+  }
+
+  updateHallOfFameBadge() {
+    if (this.hallOfFameCountBadge && this.hallOfFameStats) {
+      this.hallOfFameCountBadge.textContent = `${this.hallOfFameStats.totalRaces || 0}`;
+    }
+  }
+
+  openHallOfFameModal() {
+    this.renderHallOfFameContent();
+    this.hallOfFameModal.classList.add('active');
+    sound.playClick();
+  }
+
+  renderHallOfFameContent() {
+    const s = this.hallOfFameStats || StatsManager.createEmptyState();
+    if (this.hofTotalRaces) this.hofTotalRaces.textContent = `${s.totalRaces}회`;
+    if (this.hofTotalCups) this.hofTotalCups.textContent = `${s.totalCoffeeCups}잔`;
+    if (this.hofTotalSpent) this.hofTotalSpent.textContent = `${(s.totalMoneySpent || 0).toLocaleString()}원`;
+
+    const { topPayers, topWinners } = StatsManager.getRankings(s);
+
+    if (this.hofPayerList) {
+      if (topPayers.length === 0) {
+        this.hofPayerList.innerHTML = `<div style="color: var(--text-muted); font-size: 12px; padding: 12px; text-align: center;">아직 기록된 레이스가 없습니다.</div>`;
+      } else {
+        this.hofPayerList.innerHTML = topPayers.slice(0, 8).map((p, idx) => `
+          <div class="hof-row">
+            <div>
+              <strong style="color: ${idx === 0 ? 'var(--accent-rose)' : '#F8FAFC'};">#${idx + 1} ${escapeHtml(p.name)}</strong>
+              <span style="font-size: 11px; color: var(--text-muted);"> (${p.penalties}회 당첨 / ${p.races}전)</span>
+            </div>
+            <span style="font-family: monospace; font-weight: 800; color: #FDA4AF;">${p.totalSpent.toLocaleString()}원</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    if (this.hofWinnerList) {
+      if (topWinners.length === 0) {
+        this.hofWinnerList.innerHTML = `<div style="color: var(--text-muted); font-size: 12px; padding: 12px; text-align: center;">아직 기록된 레이스가 없습니다.</div>`;
+      } else {
+        this.hofWinnerList.innerHTML = topWinners.slice(0, 8).map((p, idx) => {
+          const winRate = p.races > 0 ? Math.round((p.wins / p.races) * 100) : 0;
+          return `
+            <div class="hof-row">
+              <div>
+                <strong style="color: ${idx === 0 ? 'var(--accent-gold)' : '#F8FAFC'};">#${idx + 1} ${escapeHtml(p.name)}</strong>
+                <span style="font-size: 11px; color: var(--text-muted);"> (승률 ${winRate}%)</span>
+              </div>
+              <span style="font-family: monospace; font-weight: 800; color: var(--accent-gold);">${p.wins}승 / ${p.races}전</span>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    if (this.hofHistoryList) {
+      const history = s.history || [];
+      if (history.length === 0) {
+        this.hofHistoryList.innerHTML = `<div style="color: var(--text-muted); font-size: 12px; padding: 12px; text-align: center;">최근 경기 기록이 없습니다.</div>`;
+      } else {
+        this.hofHistoryList.innerHTML = history.map(item => `
+          <div class="hof-history-item">
+            <div>
+              <span style="color: var(--accent-gold); font-weight: 700;">👑 ${escapeHtml(item.winnerName)}</span>
+              <span style="color: var(--text-muted); margin: 0 4px;">|</span>
+              <span style="color: #FDA4AF; font-weight: 700;">☕️ 결제: ${escapeHtml((item.payerNames || []).join(', '))}</span>
+              <span style="font-size: 11px; color: var(--text-muted);"> (${(item.totalAmount || 0).toLocaleString()}원)</span>
+            </div>
+            <div style="font-family: monospace; font-size: 11px; color: var(--text-secondary);">
+              SEED #${escapeHtml(item.seedCode || '-')}
+            </div>
+          </div>
+        `).join('');
+      }
+    }
   }
 
   showToast(message) {
