@@ -63,56 +63,96 @@
       </div>
 
       <div class="setup-grid">
-        <!-- Left: 참가자 목록 관리 -->
+        <!-- Left: 참가자 목록 관리 (Premium Starting Gate Deck) -->
         <div class="glass-card participant-card">
           <div class="card-title">
             <div class="title-left">
-              <span>🏇 참가 기수 & 경주마</span>
-              <span id="participantCount" class="participant-count">0명</span>
+              <span class="section-icon-badge">🏇</span>
+              <div>
+                <div class="section-main-title">출전 기수 & 경주마 엔트리</div>
+                <div class="section-sub-desc">이름을 등록하면 온디바이스 AI가 맞춤 별명과 전용마를 배정합니다</div>
+              </div>
             </div>
+            <span id="participantCount" class="participant-count">0 / 12두</span>
+          </div>
+
+          <!-- 12-Gate Visual Slot Meter -->
+          <div class="gate-meter-wrap">
+            <div class="gate-meter-header">
+              <span class="gate-meter-label">🏁 스타팅 게이트 슬롯 (최소 2명 ~ 최대 12명)</span>
+              <span id="gateStatusHint" class="gate-status-hint">2명 이상 등록 시 출발 가능</span>
+            </div>
+            <div id="gateSlotVisualBar" class="gate-slot-bar" aria-hidden="true">
+              <!-- 12 gate segments rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Single Input Form + Quick Role Chips -->
+          <div class="entry-input-panel">
+            <form id="addParticipantForm" class="input-group" onsubmit="return false;">
+              <div class="input-wrapper">
+                <span class="input-icon">👤</span>
+                <input type="text" id="participantInput" class="styled-input" placeholder="팀원 이름 입력 후 Enter (예: 김팀장, 이대리)" maxlength="12" autocomplete="off">
+              </div>
+              <button type="submit" id="addParticipantBtn" class="btn-primary">
+                <span>✨ 기수 등록</span>
+              </button>
+            </form>
+
+            <!-- 1-Click Quick Role Add Chips -->
+            <div class="quick-role-bar" id="quickRoleAddBar">
+              <span class="quick-role-label">⚡️ 1초 추가:</span>
+              <button type="button" class="quick-role-chip" data-role-name="김팀장">+ 김팀장</button>
+              <button type="button" class="quick-role-chip" data-role-name="이책임">+ 이책임</button>
+              <button type="button" class="quick-role-chip" data-role-name="박과장">+ 박과장</button>
+              <button type="button" class="quick-role-chip" data-role-name="최대리">+ 최대리</button>
+              <button type="button" class="quick-role-chip" data-role-name="정사원">+ 정사원</button>
+              <button type="button" class="quick-role-chip" data-role-name="강인턴">+ 강인턴</button>
+            </div>
+
+            <!-- Bulk Paste Accordion -->
+            <details class="bulk-paste-details">
+              <summary>📋 슬랙/엑셀 명단 한 번에 붙여넣기 (쉼표·줄바꿈 구분)</summary>
+              <textarea id="bulkInput" class="bulk-textarea" placeholder="김팀장, 이책임, 박선임, 최대리, 정사원, 강인턴"></textarea>
+              <button type="button" id="bulkAddBtn" class="btn-bulk-submit">⚡️ 명단 일괄 AI 등록하기</button>
+            </details>
+          </div>
+
+          <!-- Custom Preset Bar & AI Action Toolbar -->
+          <div class="entry-toolbar-row">
+            <div class="preset-section">
+              <div class="preset-header">
+                <span class="preset-label">📌 저장된 우리 팀 프리셋</span>
+                <button id="saveCurrentPresetBtn" class="btn-preset-save">
+                  💾 현재 명단 저장
+                </button>
+              </div>
+              <div id="presetChipsContainer" class="preset-bar">
+                <!-- Dynamically populated preset chips -->
+              </div>
+            </div>
+
             <div class="card-quick-actions">
               <button id="aiAutoDraftHorsesBtn" class="btn-action cyan" title="모든 참가자에게 밸런스 경주마를 자동 배정합니다">
                 🎲 AI 말 자동 배정
               </button>
               <button id="aiRerollNicknamesBtn" class="btn-action gold" title="온디바이스 AI로 모든 참가자의 별명을 창의적으로 재작성">
-                🪄 AI 별명 일괄 생성
+                🪄 AI 별명 일괄 리롤
               </button>
               <button id="clearAllBtn" class="btn-action danger" title="참가자 명단 전체 삭제">
-                🗑️ 비우기
+                🗑️ 전체 비우기
               </button>
             </div>
           </div>
 
-          <!-- Custom Preset Bar & Management -->
-          <div class="preset-section">
-            <div class="preset-header">
-              <span class="preset-label">📌 빠른 프리셋 불러오기:</span>
-              <button id="saveCurrentPresetBtn" class="btn-preset-save">
-                💾 현재 명단 저장
-              </button>
+          <!-- Inline AI Generation Progress Banner (Shown when adding participant) -->
+          <div id="inlineAiGeneratingBanner" class="inline-ai-banner" style="display: none;" aria-live="polite">
+            <div class="inline-ai-Banner-left">
+              <span class="ai-spinner"></span>
+              <span id="inlineAiBannerText">온디바이스 AI가 신규 기수의 사내 별명과 전용마를 분석 중입니다...</span>
             </div>
-            <div id="presetChipsContainer" class="preset-bar">
-              <!-- Dynamically populated preset chips -->
-            </div>
+            <span class="inline-ai-tag">NPU ACTIVE</span>
           </div>
-
-          <!-- Single Input Form -->
-          <form id="addParticipantForm" class="input-group" onsubmit="return false;">
-            <div class="input-wrapper">
-              <span class="input-icon">👤</span>
-              <input type="text" id="participantInput" class="styled-input" placeholder="참가자 이름 입력 (예: 김과장, 이대리)" maxlength="12" autocomplete="off">
-            </div>
-            <button type="submit" id="addParticipantBtn" class="btn-primary">
-              <span>+ 추가</span>
-            </button>
-          </form>
-
-          <!-- Bulk Paste Accordion -->
-          <details class="bulk-paste-details">
-            <summary>📋 쉼표(,)나 줄바꿈으로 한 번에 대량 등록하기</summary>
-            <textarea id="bulkInput" class="bulk-textarea" placeholder="김철수, 이영희, 박과장, 최팀장, 정대리, 강인턴"></textarea>
-            <button type="button" id="bulkAddBtn" class="btn-bulk-submit">⚡️ 명단 일괄 추가하기</button>
-          </details>
 
           <!-- List of Horses -->
           <div id="participantList" class="participant-list">
@@ -124,7 +164,11 @@
         <div class="glass-card rules-card">
           <div class="card-title">
             <div class="title-left">
-              <span>⚙️ 레이스 모드 & 결제 룰 설정</span>
+              <span class="section-icon-badge">⚙️</span>
+              <div>
+                <div class="section-main-title">레이스 모드 & 커피 결제 룰</div>
+                <div class="section-sub-desc">경기 방식, 벌칙 룰, 트랙 거리 및 기상 조건을 설정하세요</div>
+              </div>
             </div>
           </div>
 
@@ -349,17 +393,32 @@
 
   </main>
 
-  <!-- 3. RESULT & RECEIPT MODAL (결과 및 영수증 벌칙 티켓 모달) -->
+  <!-- 3. RESULT & RECEIPT MODAL (결과 및 영수증 벌칙 티켓 모달 - 2컬럼 벤토 대시보드) -->
   <div id="resultModal" class="modal-overlay">
-    <div class="modal-container">
-      
-      <!-- Result Header & Podium -->
+    <div class="modal-container result-dashboard-modal">
+
+      <!-- Result Header -->
       <div class="result-header">
         <div id="photoFinishBanner" class="photo-finish-banner" style="display: none;">
           📸 초접전 포토 피니시 판독 경기!
         </div>
-        <div class="result-title">🏆 영광의 시상식 & 벌칙 발표!</div>
-        <div class="result-subtitle" id="resultSubtitle">치열했던 레이스가 모두 끝났습니다.</div>
+        <div class="result-title">🏆 오피스 더비 공식 시상식 & 커피 결제 발표</div>
+        <div class="result-subtitle" id="resultSubtitle">치열했던 레이스가 모두 끝났습니다. 오늘의 영광과 지갑의 주인공을 확인하세요!</div>
+      </div>
+
+      <!-- Spotlight Hero Strip: Winner vs Coffee Payer -->
+      <div class="result-spotlight-strip">
+        <div class="spotlight-card winner-spotlight">
+          <div class="spotlight-badge gold">👑 오늘의 칼퇴 우승 (1위)</div>
+          <div class="spotlight-main-name" id="spotlightWinnerName">-</div>
+          <div class="spotlight-sub-meta" id="spotlightWinnerMeta">완주 기록 집계 중</div>
+        </div>
+        <div class="spotlight-vs-divider">VS</div>
+        <div class="spotlight-card payer-spotlight">
+          <div class="spotlight-badge rose">💸 오늘의 커피 결제 당첨</div>
+          <div class="spotlight-main-name" id="spotlightPayerName">-</div>
+          <div class="spotlight-sub-meta" id="spotlightPayerMeta">결제 금액 산출 중</div>
+        </div>
       </div>
 
       <!-- Podium Top 3 -->
@@ -368,132 +427,158 @@
         <div class="podium-step rank-2">
           <div class="podium-avatar" id="podiumAvatar2">🥈</div>
           <div class="podium-name" id="podiumName2">2위 이름</div>
-          <div class="podium-block">2</div>
+          <div class="podium-meta" id="podiumMeta2">-</div>
+          <div class="podium-block"><span>2ND</span></div>
         </div>
         <!-- 1st Place -->
         <div class="podium-step rank-1">
+          <div class="podium-crown-glow"></div>
           <div class="podium-avatar" id="podiumAvatar1">👑</div>
           <div class="podium-name" id="podiumName1">1위 이름</div>
-          <div class="podium-block">1</div>
+          <div class="podium-meta" id="podiumMeta1">-</div>
+          <div class="podium-block"><span>1ST</span></div>
         </div>
         <!-- 3rd Place -->
         <div class="podium-step rank-3">
           <div class="podium-avatar" id="podiumAvatar3">🥉</div>
           <div class="podium-name" id="podiumName3">3위 이름</div>
-          <div class="podium-block">3</div>
+          <div class="podium-meta" id="podiumMeta3">-</div>
+          <div class="podium-block"><span>3RD</span></div>
         </div>
       </div>
 
-      <!-- Race MVP Highlights Row -->
-      <div id="mvpAwardsContainer" class="mvp-awards-grid">
-        <!-- Dynamically rendered MVP badges -->
-      </div>
-
-      <!-- Realistic Thermal Receipt Card (영수증 벌칙 티켓) -->
-      <div id="receiptCard" class="receipt-card">
-        <div class="receipt-header">
-          <div class="receipt-store-title">☕️ OFFICE DERBY CAFE</div>
-          <div class="receipt-sub">오피스 더비 커피내기 공식 결제 영수증</div>
-          <div class="receipt-sub" id="receiptDate">2026.08.16 23:10 | 주문번호: #0777</div>
-        </div>
-
-        <div class="receipt-body">
-          <div class="receipt-row bold highlight">
-            <span>🎯 당첨 결제자</span>
-            <span id="receiptPayerName">김대리님 (확정)</span>
-          </div>
-          <div class="receipt-row">
-            <span>적용 룰</span>
-            <span id="receiptRuleDesc">꼴찌 1명 몰빵 결제</span>
-          </div>
-
-          <div class="receipt-divider"></div>
-
-          <div class="receipt-row bold">
-            <span>주문 음료 내역</span>
-            <span>수량 / 소계</span>
-          </div>
-          <div id="receiptMenuItems">
-            <div class="receipt-row">
-              <span>☕️ 아이스 아메리카노 외</span>
-              <span id="receiptSummaryQty">6잔</span>
+      <!-- 2-Column Bento Main Content -->
+      <div class="result-bento-grid">
+        <!-- Left Column: AI News + MVP Highlights + Full Leaderboard -->
+        <div class="result-bento-left">
+          <!-- On-Device AI Sports News 1-Paragraph Story -->
+          <div class="ai-article-card" id="aiArticleCard">
+            <div class="ai-article-header">
+              <span class="ai-news-pill">BREAKING NEWS</span>
+              <span>🧠 온디바이스 AI 특종 1면 속보</span>
+            </div>
+            <div class="ai-article-content" id="aiArticleContent">
+              <!-- Dynamically generated AI story -->
             </div>
           </div>
 
-          <div class="receipt-total">
-            <span>총 예상 결제금액</span>
-            <span id="receiptTotalAmount">27,000원</span>
+          <!-- Race MVP Highlights Row -->
+          <div class="mvp-section-card">
+            <div class="ranking-table-title">
+              <span>🏅 레이스 하이라이트 MVP 어워드</span>
+            </div>
+            <div id="mvpAwardsContainer" class="mvp-awards-grid">
+              <!-- Dynamically rendered MVP badges -->
+            </div>
           </div>
-          <div id="receiptPerPersonRow" class="receipt-per-person-row" style="display: none;">
-            <span>1인당 분담 결제액</span>
-            <span id="receiptPerPersonAmount">13,500원</span>
+
+          <!-- Complete Ranking Table -->
+          <div class="ranking-details-card">
+            <div class="ranking-table-title">
+              <span>🏁 최종 완주 순위 & 주행 데이터</span>
+            </div>
+            <div id="modalRankList" class="modal-rank-list">
+              <!-- Full ranked rows -->
+            </div>
           </div>
         </div>
 
-        <!-- Rubber Stamp -->
-        <div class="receipt-stamp">결 제 확 정</div>
+        <!-- Right Column: Realistic Thermal Receipt Card (영수증 벌칙 티켓) -->
+        <div class="result-bento-right">
+          <div id="receiptCard" class="receipt-card">
+            <div class="receipt-header">
+              <div class="receipt-store-badge">OFFICIAL RECEIPT</div>
+              <div class="receipt-store-title">☕️ OFFICE DERBY CAFE</div>
+              <div class="receipt-sub">오피스 더비 커피내기 공식 결제 영수증</div>
+              <div class="receipt-sub" id="receiptDate">2026.08.16 23:10 | 주문번호: #0777</div>
+            </div>
 
-        <div class="receipt-footer-notes" id="receiptFooterNotes">
-          * 법인카드 결제 금지 (개인카드 결제 권장)<br>
-          * 샷 추가 및 디저트는 당첨자의 자비에 맡깁니다.
-        </div>
+            <div class="receipt-body">
+              <div class="receipt-row bold highlight">
+                <span>🎯 당첨 결제자</span>
+                <span id="receiptPayerName">김대리님 (확정)</span>
+              </div>
+              <div class="receipt-row">
+                <span>적용 룰</span>
+                <span id="receiptRuleDesc">꼴찌 1명 몰빵 결제</span>
+              </div>
 
-        <!-- Barcode visual -->
-        <div class="barcode-visual">
-          <div class="bar-line" style="width: 2px;"></div>
-          <div class="bar-line" style="width: 4px; margin-left: 3px;"></div>
-          <div class="bar-line" style="width: 1px; margin-left: 2px;"></div>
-          <div class="bar-line" style="width: 3px; margin-left: 4px;"></div>
-          <div class="bar-line" style="width: 2px; margin-left: 2px;"></div>
-          <div class="bar-line" style="width: 5px; margin-left: 3px;"></div>
-          <div class="bar-line" style="width: 1px; margin-left: 2px;"></div>
-          <div class="bar-line" style="width: 3px; margin-left: 3px;"></div>
-          <div class="bar-line" style="width: 2px; margin-left: 4px;"></div>
-          <div class="bar-line" style="width: 4px; margin-left: 2px;"></div>
+              <div class="receipt-divider"></div>
+
+              <div class="receipt-row bold">
+                <span>주문 음료 내역</span>
+                <span>수량 / 소계</span>
+              </div>
+              <div id="receiptMenuItems">
+                <div class="receipt-row">
+                  <span>☕️ 아이스 아메리카노 외</span>
+                  <span id="receiptSummaryQty">6잔</span>
+                </div>
+              </div>
+
+              <div class="receipt-total">
+                <span>총 예상 결제금액</span>
+                <span id="receiptTotalAmount">27,000원</span>
+              </div>
+              <div id="receiptPerPersonRow" class="receipt-per-person-row" style="display: none;">
+                <span>1인당 분담 결제액</span>
+                <span id="receiptPerPersonAmount">13,500원</span>
+              </div>
+            </div>
+
+            <!-- Rubber Stamp -->
+            <div class="receipt-stamp">결 제 확 정</div>
+
+            <div class="receipt-footer-notes" id="receiptFooterNotes">
+              * 법인카드 결제 금지 (개인카드 결제 권장)<br>
+              * 샷 추가 및 디저트는 당첨자의 자비에 맡깁니다.
+            </div>
+
+            <!-- Barcode visual -->
+            <div class="barcode-visual">
+              <div class="bar-line" style="width: 2px;"></div>
+              <div class="bar-line" style="width: 4px; margin-left: 3px;"></div>
+              <div class="bar-line" style="width: 1px; margin-left: 2px;"></div>
+              <div class="bar-line" style="width: 3px; margin-left: 4px;"></div>
+              <div class="bar-line" style="width: 2px; margin-left: 2px;"></div>
+              <div class="bar-line" style="width: 5px; margin-left: 3px;"></div>
+              <div class="bar-line" style="width: 1px; margin-left: 2px;"></div>
+              <div class="bar-line" style="width: 3px; margin-left: 3px;"></div>
+              <div class="bar-line" style="width: 2px; margin-left: 4px;"></div>
+              <div class="bar-line" style="width: 4px; margin-left: 2px;"></div>
+              <div class="bar-line" style="width: 2px; margin-left: 3px;"></div>
+              <div class="bar-line" style="width: 3px; margin-left: 2px;"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- On-Device AI Sports News 1-Paragraph Story -->
-      <div class="ai-article-card" id="aiArticleCard">
-        <div class="ai-article-header">
-          <span>🧠 온디바이스 AI 특종 속보</span>
+      <!-- Sticky Bottom Action Buttons -->
+      <div class="modal-actions-bar">
+        <div class="modal-actions-primary">
+          <button id="copyResultBtn" class="action-btn-copy">
+            <span>📋</span>
+            <span>슬랙 / 카톡 결과 복사</span>
+          </button>
+          <button id="downloadReceiptBtn" class="action-btn-download">
+            <span>🖼️</span>
+            <span>영수증 PNG 저장</span>
+          </button>
+          <button id="rematchBtn" class="action-btn-rematch">
+            <span>🔄</span>
+            <span>멤버 그대로 새 경기</span>
+          </button>
         </div>
-        <div class="ai-article-content" id="aiArticleContent">
-          <!-- Dynamically generated AI story -->
+        <div class="modal-actions-secondary">
+          <button id="replaySameSeedBtn" class="action-btn-replay" title="같은 시드로 방금 경기를 완벽히 동일하게 다시 재생합니다">
+            <span>🔁</span>
+            <span>동일 시드 리플레이</span>
+          </button>
+          <button id="backToSetupBtn" class="action-btn-setup">
+            <span>⚙️</span>
+            <span>참가자 & 룰 설정으로</span>
+          </button>
         </div>
-      </div>
-
-      <!-- Complete Ranking Table -->
-      <div class="ranking-details-card">
-        <div class="ranking-table-title">
-          <span>🏁 최종 완주 기록표</span>
-        </div>
-        <div id="modalRankList" class="modal-rank-list">
-          <!-- Full ranked rows -->
-        </div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="modal-actions">
-        <button id="copyResultBtn" class="action-btn-copy">
-          <span>📋</span>
-          <span>슬랙 / 카톡 결과 복사</span>
-        </button>
-        <button id="downloadReceiptBtn" class="action-btn-download">
-          <span>🖼️</span>
-          <span>영수증 PNG 이미지 저장</span>
-        </button>
-        <button id="replaySameSeedBtn" class="action-btn-replay" title="같은 시드로 방금 경기를 완벽히 동일하게 다시 재생합니다">
-          <span>🔁</span>
-          <span>동일 시드 리플레이</span>
-        </button>
-        <button id="rematchBtn" class="action-btn-rematch">
-          <span>🔄</span>
-          <span>멤버 그대로 새 경기</span>
-        </button>
-        <button id="backToSetupBtn" class="action-btn-setup">
-          ⚙️ 참가자 & 룰 설정으로 돌아가기
-        </button>
       </div>
 
     </div>
